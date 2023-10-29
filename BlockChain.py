@@ -35,10 +35,5 @@ class Chain:
         return True
 
 
-b = Chain([])
-b.add_new_block(Block(0, 'send $10'))
-b.add_new_block(Block(0, 'received $20'))
-b.add_new_block(Block(0, 'send $3'))
-b.add_new_block(Block(0, 'send $50'))
 
 
