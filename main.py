@@ -4,17 +4,29 @@ from BlockChain import Chain
 from Peer import Peer
 import threading
 
-peers = []
 
+peers = []
 
 
 def process_recvd_data(data):
     print(data)
 
 
+def handle_client_connection(client, addr):
+    try:
+        while True:
+            data = client.recv(2048)
+            if not data:
+                continue
+            client.send('received'.encode('ascii'))
+            print('{} -> {}'.format(addr, data))
+    except:
+        client.close()
+
+
 def main():
     sock = socket.socket()
-    ip = '127.0.0.1'
+    ip = '192.168.56.1'
     port = 9009
     addr = (ip, port)
     sock.bind(addr)
@@ -30,8 +42,11 @@ def main():
                 return
         peers.append(new_peer)
 
-        data = client.recv(2048)
-        threading.Thread(process_recvd_data(data.decode())).start()
+        # threading.Thread(handle_client_connection(client, addr)).start()
+        th = threading.Thread(handle_client_connection(client, addr))
+        th.start()
+
+    sock.close()
 
 
 threading.Thread(main()).start()
