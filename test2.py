@@ -1,8 +1,8 @@
 from twisted.internet.protocol import DatagramProtocol
 from twisted.internet import reactor
 from random import randint
-from BlockChain import Chain
-from Block import Block
+from BlockChain.Block import Block
+from BlockChain.BlockChain import Chain
 
 
 chain = Chain([])
@@ -30,7 +30,7 @@ class Client(DatagramProtocol):
         else:
             chain.add_new_block(Block('0', datagram))
             for blk in chain.chain:
-                print('\n\n\Block ######\nprev hash : {}\ndata : {}\n hash : {}'.format(
+                print('\n\nBlock ######\nprev hash : {}\ndata : {}\n hash : {}'.format(
                     blk.prev_hash, blk.data, blk.hash))
 
     def send_message(self):
@@ -38,6 +38,7 @@ class Client(DatagramProtocol):
             data = input('::::')
             chain.add_new_block(Block('0', data))
             self.transport.write(data.encode('utf-8'), self.address)
+            chain.chain[-1].data = 'fake data'
             for blk in chain.chain:
                 print('\n\n\Block ######\nprev hash : {}\ndata : {}\n hash : {}'.format(
                     blk.prev_hash, blk.data, blk.hash))

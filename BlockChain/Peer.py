@@ -1,12 +1,11 @@
-import socket
+# Robert Sibanda (robertsibanda20@gmail.com)
+# .
 
 class Peer:
+    def __init__(self, host, port):
+        self.host = host
+        self.port = port
+        self.address = self.host, self.port
 
-    def __init__(self, addr):
-        self.addr = addr
-        print('Connected to new peer : {0}  :'
-              '  {1}'.format(addr, socket.gethostbyaddr(addr[0])))
-
-    def send_data(self):
-        pass
-
+    def get_address(self):
+        return self.address
