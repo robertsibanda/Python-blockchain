@@ -1,6 +1,7 @@
 # Robert Sibanda (robertsibanda20@gmail.com)
 # .
 
+# this is the main node file
 
 from twisted.internet import reactor
 from twisted.internet.protocol import DatagramProtocol
@@ -8,9 +9,10 @@ from BlockChain.BlockChain import Chain
 from BlockChain.Block import Block
 from random import randint
 from BlockChain.Peer import Peer
+from BlockChain.Security.Identity import Identity
 
 chain = Chain([])
-
+identity = Identity()
 
 class Server(DatagramProtocol):
 
@@ -25,6 +27,14 @@ class Server(DatagramProtocol):
         """initialize the connection"""
 
         self.transport.write('ready'.encode('utf-8'), self.server)
+
+    def verify_data(self, data):
+        """
+        verifies that the received data is from one of the nodes
+        verifies using public key of the stated sender of the data
+        """
+
+        return True
 
     def datagramReceived(self, datagram: bytes, addr):
 
@@ -72,10 +82,11 @@ class Server(DatagramProtocol):
     def send_message(self):
         while True:
             data = input('::::')
+            data2send = identity.sign_data(data)
             chain.add_new_block(Block('0', data))
             try:
                 for peer in self.peers:
-                    self.transport.write(data.encode('utf-8'), peer)
+                    self.transport.write(data2send, peer)
                 for blk in chain.chain:
                     print('\n\n\Block ######\nprev hash : {}\ndata : {}\n hash : {}'.format(
                         blk.prev_hash, blk.data, blk.hash))

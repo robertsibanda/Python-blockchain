@@ -2,7 +2,7 @@
 # .
 
 import hashlib
-from Chain.Block import Block
+from BlockChain.Block import Block
 import sys
 
 
