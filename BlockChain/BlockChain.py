@@ -2,7 +2,7 @@
 # .
 
 import hashlib
-from BlockChain.Block import Block
+from Chain.Block import Block
 import sys
 
 
@@ -19,7 +19,7 @@ class Chain:
         """
         self.chain = [self.create_genesis_block()]
 
-    def refresh_block(self):
+    def refresh_block(self) -> bool:
 
         """
         check the valdity of the chain periodically
@@ -29,7 +29,7 @@ class Chain:
             return True
         return False
 
-    def create_genesis_block(self):
+    def create_genesis_block(self) -> Block:
         blok = Block(0, 'Genesis Block')
         blok.hash = create_hash(blok.data)
         return blok
@@ -45,11 +45,11 @@ class Chain:
         self.chain.append(new_block)
         self.refresh_block()
 
-    def get_last_block(self):
+    def get_last_block(self) -> Block:
         """last block os the chain """
         return self.chain[-1]
 
-    def valid_block(self):
+    def valid_block(self) -> bool:
         """check validity of the chian"""
         for blck in self.chain:
             if self.chain.index(blck) == 0:
