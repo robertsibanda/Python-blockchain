@@ -2,10 +2,21 @@
 # .
 
 class Peer:
-    def __init__(self, host, port):
-        self.host = host
-        self.port = port
-        self.address = self.host, self.port
+    def __init__(self, addr, public_key, name):
+        self.address = addr
+        self.pk = public_key
+        self.name = name
 
     def get_address(self):
         return self.address
+
+
+class Peers:
+
+    def __init__(self):
+        self.peers = set()
+
+    def lookup(self, addr):
+        for peer in self.peers:
+            if peer.address == addr:
+                return peer

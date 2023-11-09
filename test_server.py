@@ -9,9 +9,13 @@ class Server(DatagramProtocol):
 
     def datagramReceived(self, datagram, addr):
         datagram = datagram.decode('utf-8')
-        addresses = "-".join([str(x) for x in self.clients])
-        self.transport.write('peers->{}'.format(addresses).encode('utf-8'), addr)
-        self.clients.add(addr)
+
+        peers = "-".join([str(x) for x in self.clients])
+        self.transport.write(
+            'peers->{}'.format(peers).encode('utf-8'), addr)
+
+        self.clients.add({address: "addr", "public_key": eval(
+            datagram)["pk"], "name": eval(datagram)["name"]})
 
 
 if __name__ == '__main__':

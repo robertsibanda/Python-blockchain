@@ -10,9 +10,15 @@ from BlockChain.Block import Block
 from random import randint
 from BlockChain.Peer import Peer
 from BlockChain.Security.Identity import Identity
+import pymongo
 
 chain = Chain([])
 identity = Identity()
+
+other_nodes = {
+
+}
+
 
 class Server(DatagramProtocol):
 
@@ -25,8 +31,9 @@ class Server(DatagramProtocol):
 
     def startProtocol(self):
         """initialize the connection"""
-
-        self.transport.write('ready'.encode('utf-8'), self.server)
+        node_identity = {status: "ready",
+                         "pk": identity.public_key, "name": "n1"}
+        self.transport.write(str(node_identity).encode('utf-8'), self.server)
 
     def verify_data(self, data):
         """
@@ -37,7 +44,6 @@ class Server(DatagramProtocol):
         return True
 
     def datagramReceived(self, datagram: bytes, addr):
-
         """"
         process data received from others peers
 
@@ -55,23 +61,30 @@ class Server(DatagramProtocol):
             return
 
         elif data[0] == 'peers':
+
             if data[1] == '':
                 return
             for peer in data[1].split('-'):
-                new_peer = Peer(eval(peer)[0], eval(peer)[1])
-                self.peers.add(new_peer.address)
-                self.transport.write("register".encode('utf-8'), new_peer.address)
+                peer_recvd = eval(peer)
+                new_node = Peer(
+                    peer_recvd["addr"], peer_recvd["public_key"], peer_recvd["name"])
+
+                self.peers.add({address: new_node.address, pk: new_node.pk})
+                self.transport.write(
+                    "register".encode('utf-8'), new_peer.address)
             print('\nPeers :\n{}'.format(self.peers))
+            print('\nIdentities : \n{}'.format(identities))
             return
 
         elif data[0] == 'transaction':
             chain.add_new_block(Block(0, str(data[1]).encode('utf-8')))
             for blk in chain.chain:
-                print('\n\n{}\n{}\n{}'.format(blk.prev_hash, blk.data, blk.hash))
+                print('\n\n{}\n{}\n{}'.format(
+                    blk.prev_hash, blk.data, blk.hash))
             return
 
         elif data[0] == 'status':
-            self.transport.write('alive'.encode('utf-8'), addr)
+            self.transport.write(identity.sign_data('alive'), addr)
             return
 
         else:
