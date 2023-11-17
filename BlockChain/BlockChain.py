@@ -2,8 +2,8 @@
 # .
 
 import hashlib
-from BlockChain.Block import Block
 import sys
+from .Block import Block
 
 
 # commented
@@ -20,12 +20,11 @@ class Chain:
         self.chain = [self.create_genesis_block()]
 
     def refresh_block(self) -> bool:
-
         """
         check the valdity of the chain periodically
         or when adding new block depending on what you prefer
         """
-        if self.valid_block():
+        if self.valid_chain():
             return True
         return False
 
@@ -49,7 +48,10 @@ class Chain:
         """last block os the chain """
         return self.chain[-1]
 
-    def valid_block(self) -> bool:
+    def get_hashes(self):
+        return [(block.hash, block.prev_hash) for block in self.chain]
+
+    def valid_chain(self) -> bool:
         """check validity of the chian"""
         for blck in self.chain:
             if self.chain.index(blck) == 0:

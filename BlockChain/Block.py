@@ -1,6 +1,5 @@
 # Robert Sibanda (robertsibanda20@gmail.com)
 # .
-
 class Block:
 
     def __init__(self, prev_hash, data):

@@ -6,23 +6,28 @@ class Database:
     def __init__(self, address, port, database):
         self.client = MongoClient(address, port)
         self.database = self.client[database]
+        try:
+            self.database.drop_collection("blocks")
+            self.database.drop_collection("users")
+        except Exception as ex:
+            print("Error refreshing database :", ex)
 
-    def save_block(self, block):
-        collections = self.database["blocks"]
-        pass
+        self.database.create_collection("blocks")
+        self.database.create_collection("users")
 
-    def get_block(self, details):
-        collections = self.database["blocks"]
-        pass
-
-    def get_credentials(self):
+    def get_credentials(self, name):
         collection = self.database["users"]
-        return collection.find()
+        return collection.find_one({"name": name})
 
-    def save_credentials(self):
+    def peer_lookup(self, addr):
         collection = self.database["users"]
-        pass
+        return collection.find_one({"address": addr})
 
+    def save_credentials(self, user):
+        collection = self.database["users"]
+        collection.insert_one(user)
+        return
 
-db = Database("localhost", 27017, "jobportal")
-print([x for x in db.get_credentials()])
+    def update_credentials(self, name, user):
+        collection = self.database["users"]
+        collection.find_one_and_replace({"name": name}, user)

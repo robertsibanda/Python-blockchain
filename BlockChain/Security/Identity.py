@@ -1,12 +1,13 @@
 from cryptography.fernet import Fernet
 import rsa
+from ecdsa import SigningKey, VerifyingKey, keys
 
 
-def verify_data(public_key, data) -> str:
+def verify_data(data, signaure, pk) -> bool:
     """
     verify integrity of data with public key of the sender
     """
-    return ""
+    return rsa.verify(data, signaure, pk) == "SHA-256"
 
 
 def encrypt_data(public_key, data) -> bytes:
@@ -23,8 +24,9 @@ class Identity:
         self.load_public_key()
         self.load_private_key()
 
-    def sign_data(self, data) -> bytes:
-        signed_data = rsa.sign(data.encode('utf-8'), self.private_key, "SHA-256")
+    def sign_data(self, data):
+        signed_data = rsa.sign(data.encode(
+            'utf-8'), self.private_key, 'SHA-256')
         return signed_data
 
     def create_new_keys(self) -> None:
