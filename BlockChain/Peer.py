@@ -11,6 +11,21 @@ class Peer:
         return self.address
 
 
+def save_peer(database, peer):
+    database.save_credentials(peer)
+
+
+def verify_peer():
+    pass
+
+
+def peer_exists(peers, addr) -> bool:
+    for peer in peers:
+        if peer.address == addr:
+            return True
+    return False
+
+
 class Peers:
 
     def __init__(self):

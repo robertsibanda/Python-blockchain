@@ -8,7 +8,7 @@ from twisted.internet.protocol import DatagramProtocol
 from BlockChain.BlockChain import Chain
 from BlockChain.Block import Block
 from random import randint, random
-from BlockChain.Peer import Peer
+from BlockChain.Peer import Peer, peer_exists, save_peer
 from BlockChain.Security.Identity import Identity, verify_data, encrypt_data
 from BlockChain.Storage.Database import Database
 import rsa
@@ -33,6 +33,7 @@ class Server(DatagramProtocol):
         self.address = (host, port)
         self.server = '192.168.56.1', 9009
         self.index_being_validated = 0
+        self.new_join = True
         print('working on id : ', self.id)
 
     def startProtocol(self):
@@ -59,36 +60,48 @@ class Server(DatagramProtocol):
             '''
             data = datagram.decode().split('->')
             if data[0] == 'peers':
+
+                """
+                if node was already running update list of peers
+                """
                 if data[1] == '':
                     return
 
-                for peer in data[1].split('000000'):
+                recvd_peers = data[1].split('000000')
+
+                if len(recvd_peers) < 2:
+                    """no other peers in the network"""
+                    return
+
+                for peer in recvd_peers:
+
+                    if peer_exists(self.peers, eval(peer)["address"]):
+                        continue
 
                     if eval(peer)["address"] == self.address:
                         continue
 
                     peer_recvd = eval(peer)
-                    _node_saved = database.get_credentials(eval(peer)["name"])
 
-                    print("\n\nNode saved : ", _node_saved)
-                    if _node_saved is None:
-                        database.save_credentials(peer_recvd)
-                        new_node = Peer(
-                            peer_recvd["address"], peer_recvd["public_key"], peer_recvd["name"])
+                    save_peer(database, peer_recvd)
+                    new_node = Peer(
+                        peer_recvd["address"], peer_recvd["public_key"], peer_recvd["name"])
 
-                        '''
-                        add new node to list of currently registered nodes
-                        '''
-                        self.peers.add(new_node)
+                    '''
+                    add new node to list of currently registered nodes
+                    '''
+                    self.peers.add(new_node)
 
-                    else:
-                        name = _node_saved["name"]
-                        database.update_credentials(name, eval(peer))
+                    if self.new_join:
+                        """
+                        only register and request chain if new node
+                        """
+                        self.transport.write('{}0000{}'.format(
+                            identity.sign_data("register"), "register").encode('utf-8'), new_node.address)
 
-                    self.transport.write('{}0000{}'.format(
-                        identity.sign_data("register"), "register").encode('utf-8'), new_node.address)
-
+                self.new_join = False
                 print('\nPeers :\n{}'.format(self.peers))
+
             return
 
         '''
@@ -126,7 +139,7 @@ class Server(DatagramProtocol):
                     """
                     if chain.valid_chain():
                         chain_hashes = '\n'.join(
-                            [str(hash) for hash in chain.get_hashes])
+                            [str(hash_str) for hash_str in chain.get_hashes()])
                         chain2send = str(chain_hashes)
                         signed_chain = identity.sign_data(chain2send)
                         self.transport.write(
@@ -194,7 +207,7 @@ class Server(DatagramProtocol):
         reactor.callInThread(self.send_message)
 
     def broadcast_chain_request(self):
-        for peer_addr in chains_to_validate.values:
+        for peer_addr in chains_to_validate.values():
             data2send = 'chain-index-{}'.format(
                 self.index_being_validated)
             signed_data = identity.sign_data(data2send)
