@@ -5,7 +5,6 @@ import hashlib
 import sys
 from .Block import Block
 
-
 # commented
 def create_hash(data):
     return hashlib.sha256('{}'.format(data).encode('ascii')).hexdigest()
@@ -51,6 +50,9 @@ class Chain:
     def get_hashes(self):
         return [(block.hash, block.prev_hash) for block in self.chain]
 
+    def add_transaction_to_block(self, unsaved_block):
+        pass
+    
     def valid_chain(self) -> bool:
         """check validity of the chian"""
         for blck in self.chain:

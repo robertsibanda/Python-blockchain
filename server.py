@@ -1,8 +1,9 @@
 # Robert Sibanda (robertsibanda20@gmail.com)
 # .
+import threading
 
 # this is the Node server file
-
+from Clients.rpc import is_chain_valid, hello
 from twisted.internet import reactor
 from twisted.internet.protocol import DatagramProtocol
 from BlockChain.BlockChain import Chain
@@ -12,7 +13,10 @@ from BlockChain.Peer import Peer, peer_exists, save_peer
 from BlockChain.Security.Identity import Identity, verify_data, encrypt_data
 from BlockChain.Storage.Database import Database
 import rsa
-
+from jsonrpcserver import serve, method, Success
+import threading
+from Clients.rpc import hello, get_block, is_chain_valid
+from BlockChain import create_new_block, close_block, validate_transaction
 database = Database('127.0.0.1', 27017, 'ehr_chain')
 
 chain = Chain([])
@@ -21,6 +25,15 @@ identity = Identity()
 
 other_nodes = {
 }
+
+method(hello)
+method(get_block)
+
+
+@method
+def validate_chain(headers):
+    return Success({"chain-valid": is_chain_valid(chain, headers)})
+
 
 chains_to_validate = {}
 
@@ -284,4 +297,6 @@ def main():
 
 # this only runs if the module was *not* imported
 if __name__ == '__main__':
+    RPC_THREAD = threading.Thread(target=serve)
+    RPC_THREAD.start()
     main()
