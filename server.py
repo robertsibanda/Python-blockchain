@@ -1,24 +1,28 @@
 # Robert Sibanda (robertsibanda20@gmail.com)
 # .
-import threading
-
 # this is the Node server file
-from Clients.rpc import is_chain_valid, hello
+import time
+
+from BlockChain.Trasanction import Transaction
 from twisted.internet import reactor
 from twisted.internet.protocol import DatagramProtocol
 from BlockChain.BlockChain import Chain
 from BlockChain.Block import Block
 from random import randint, random
 from BlockChain.Peer import Peer, peer_exists, save_peer
-from BlockChain.Security.Identity import Identity, verify_data, encrypt_data
+from BlockChain.Security.Identity import Identity
+from BlockChain.Security import verify_data, encrypt_data
 from BlockChain.Storage.Database import Database
 import rsa
 from jsonrpcserver import serve, method, Success
 import threading
 from Clients.rpc import hello, get_block, is_chain_valid
 from BlockChain import create_new_block, close_block, validate_transaction
+
 database = Database('127.0.0.1', 27017, 'ehr_chain')
 
+pending_transactions = []
+pending_block = Block(0)
 chain = Chain([])
 
 identity = Identity()
@@ -32,6 +36,16 @@ method(get_block)
 
 @method
 def validate_chain(headers):
+    pending_transactions.append(Transaction('update',
+                                            {"blood pressure": "87/50", "sugar": 120},
+                                            {"user": "dgsd7etf7eft7623t79t723tf72",
+                                             "time": time.ctime()
+                                             }
+                                            ))
+    if len(pending_transactions) > 2:
+        pending_block.transactions = pending_transactions
+        chain.add_new_block(pending_block)
+        database.save_block(chain.chain[-1])
     return Success({"chain-valid": is_chain_valid(chain, headers)})
 
 

@@ -1,5 +1,7 @@
 from pymongo import MongoClient
 
+from BlockChain import BlockChain
+
 
 class Database:
 
@@ -31,3 +33,20 @@ class Database:
     def update_credentials(self, name, user):
         collection = self.database["users"]
         collection.find_one_and_replace({"name": name}, user)
+
+    def save_block(self, block: BlockChain.Block):
+        collection = self.database["blocks"]
+        transactions2save = []
+        for transaction in block.transactions:
+            transaction2save = {
+                "type": transaction.type,
+                "data": transaction.data,
+                "metadata": transaction.metadata,
+                "hash": transaction.hash
+            }
+            transactions2save.append(transaction2save)
+        inserted_doc = collection.insert_one({"block_header": block.header,
+                                              "transactions": transactions2save
+                                              })
+
+        return inserted_doc
