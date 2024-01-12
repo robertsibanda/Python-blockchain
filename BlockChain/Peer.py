@@ -19,10 +19,9 @@ def verify_peer():
     pass
 
 
-def peer_exists(peers, addr) -> bool:
-    for peer in peers:
-        if peer.address == addr:
-            return True
+def peer_exists(peers, peer) -> bool:
+    # check whether the peer (name) is not already in the list
+    # change the address of the peer if it already exists
     return False
 
 

@@ -11,6 +11,9 @@ __pycache__/
 *.py[cod]
 *$py.class
 *.pyc
-__pycache__/
 /node_modules
 /tests/*
+.ipynb_checkpoints/Untitled-checkpoint.ipynb
+Untitled.ipynb
+.vscode/settings.json
+wget-log

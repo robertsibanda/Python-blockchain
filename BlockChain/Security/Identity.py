@@ -1,4 +1,3 @@
-from cryptography.fernet import Fernet
 import rsa
 
 
@@ -10,7 +9,7 @@ class Identity:
         self.load_private_key()
 
     def sign_data(self, data):
-        signed_data = rsa.sign(data.encode(
+        signed_data = rsa.sign(str(data).encode(
             'utf-8'), self.private_key, 'SHA-256')
         return signed_data
 

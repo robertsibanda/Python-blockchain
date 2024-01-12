@@ -5,7 +5,13 @@ from . import Peer
 import hashlib
 
 
-def create_hash(data):
+def load_from_database() -> BlockChain.Chain:
+    """Load blockchain from exiting mongo database"""
+    chain = BlockChain.Chain()
+    return chain
+
+
+def create_hash_default(data):
     hasher = hashlib.sha256()
     if 'list' in str(type(data)):
         [hasher.update(item.encode('utf-8')) for item in data]
@@ -14,6 +20,15 @@ def create_hash(data):
 
 
 def create_new_block(transction_data):
+    """
+    add new block with first transaction
+    :param transction_data: first transaction
+    :return: new block id
+    """
+    pass
+
+
+def add_transaction(block, transaction):
     pass
 
 
