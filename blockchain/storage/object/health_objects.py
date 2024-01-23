@@ -1,34 +1,30 @@
 import datetime
+from dataclasses import dataclass, field
 
 
+@dataclass
 class HealthObject:
-    
-    def __init__(self, name, uid, descption):
-        self.name = name
-        self.uid = uid
-        self.descption = descption
+    name: str
+    uid: str
+    description: str
 
 
+@dataclass
 class Record(HealthObject):
-    def __init__(self, name, uid, descption, category):
-        super().__init__(name, uid, descption)
-        self.timestamp = datetime.datetime.now()
-        self.category = category
+    timestamp: str
+    category: str
 
 
+@dataclass
 class Allegie(Record):
-    
-    def __init__(self, name, uid, descption, category="allegic reaction"):
-        super().__init__(name, uid, descption, category)
+    category = "allegy"
 
 
+@dataclass
 class Prescription(Record):
-    
-    def __init__(self, name, uid, descption, medicine, category="presciption"):
-        super().__init__(name, uid, descption, category)
-        self.medicine = medicine
-        self.quantity = 1
-    
+    medicine: str
+    quanity: int
+
     def is_patient_allegic(self, patient):
         pass
     
@@ -39,28 +35,22 @@ class Prescription(Record):
         pass
 
 
+@dataclass
 class Disease(HealthObject):
-    
-    def __init__(self, name, uid, descption):
-        super().__init__(name, uid, descption)
+    disease: str
 
 
+@dataclass
 class Medicine(HealthObject):
-    
-    def __init__(self, name, uid, descption, chem, max_dose):
-        super().__init__(name, uid, descption)
-        self.chem = chem
-        self.max_dose = max_dose
+    max_dose: int
+    chemicals: list
 
 
 class LabResult(Record):
-    
-    def __init__(self, name, uid, descption, result, category="lab result"):
-        super().__init__(name, uid, descption, category)
-        self.result = result
+    category = "lab result"
+    result: str
 
 
+@dataclass
 class LabTest(HealthObject):
-    
-    def __init__(self, name, uid, descption):
-        super().__init__(name, uid, descption)
+    test: str

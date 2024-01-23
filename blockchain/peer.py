@@ -9,6 +9,9 @@ class Peer:
     address: str
     pk: str
     name: str
+    
+    def __hash__(self):
+        return hash(f"{self.address, self.pk, self.name}")
 
 
 def save_peer(database, peer):

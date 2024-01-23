@@ -1,8 +1,9 @@
 # Robert Sibanda (robertsibanda20@gmail.com)
 # .
 import hashlib
+from dataclasses import dataclass
 
-
+# TODO change transaction limit from count to time && count
 MAX_TRANSACTIONS = 2  # max number of transactions in a block
 
 
@@ -32,9 +33,16 @@ class Block:
         return
     
     def close_block(self):
-        # TODO save block to database
         transaction_hashes = []
         for transaction in self.transactions:
             transaction_hashes.append(transaction.hash)
         self.create_block_data_hash(transaction_hashes)
         return
+
+
+@dataclass(frozen=True)
+class HashBlock:
+    hash: str
+    previous_hash: str
+    data_hash: str
+    

@@ -1,47 +1,24 @@
-"""
-An example client. Run simpleserv.py first before running this.
-"""
 from __future__ import print_function
-
-from twisted.internet import reactor, protocol
-
-
-# a client protocol
-
-class EchoClient(protocol.Protocol):
-    """Once connected, send a message, then print the result."""
-
-    def connectionMade(self):
-        self.transport.write(b"hello, world!")
-
-    def dataReceived(self, data):
-        "As soon as any data is received, write it back."
-        print("Server said:", data)
-        self.transport.loseConnection()
-
-    def connectionLost(self, reason):
-        print("connection lost")
+import grpc
+import block_pb2
+import block_pb2_grpc
 
 
-class EchoFactory(protocol.ClientFactory):
-    protocol = EchoClient
-
-    def clientConnectionFailed(self, connector, reason):
-        print("Connection failed - goodbye!")
-        reactor.stop()
-
-    def clientConnectionLost(self, connector, reason):
-        print("Connection lost - goodbye!")
-        reactor.stop()
+def download_peer_block(peer_address, block_id):
+    with grpc.insecure_channel(peer_address) as channel:
+        stub = block_pb2_grpc.BlockDownloaderStub(channel)
+        response = stub.DownloadBlock(block_pb2.BlockRequest(id=block_id))
+        print(f"Block from server : {response}")  # return block
 
 
-# this connects the protocol to a server running on port 8000
-def main():
-    f = EchoFactory()
-    reactor.connectTCP("localhost", 9009, f)
-    reactor.run()
+def download_peer_blocks(peer_address, block_id):
+    with grpc.insecure_channel(peer_address) as channel:
+        stub = block_pb2_grpc.BlockDownloaderStub(channel)
+        for block in stub.DownloadBlocks(block_pb2.BlocksRequest(startingBlock=block_id)):
+            # save the blocks to chain after validating
+            print(f"Block recieved : {block.transactions}")
+        return  # done downloading the blocks to my chain
 
 
-# this only runs if the module was *not* imported
-if __name__ == '__main__':
-    main()
+def validate_peer_block(peer_address):
+    return

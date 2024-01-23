@@ -11,12 +11,15 @@ class Transaction:
     
     def __post_init__(self):
         self.hash = create_hash_default(self.data)
-        
+    
     def verified(self):
-        return # verify_data(self.data, self.metadata['signature'], self.metadata['pk'])
+        return  # verify_data(self.data, self.metadata['signature'], self.metadata['pk'])
     
     def is_valid(self) -> bool:
         # self.verified()
         return True
-    
- 
+
+
+@dataclass(frozen=True)
+class HashTransaction:
+    hash: str

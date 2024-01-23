@@ -2,7 +2,9 @@
 # .
 
 import hashlib
-from .Block import Block
+from dataclasses import dataclass, field
+
+from .block import Block, HashBlock
 
 
 # commented
@@ -94,3 +96,13 @@ class Chain:
     def delete_all_blocks(self):
         pass
     
+    
+@dataclass
+class HashChain:
+    chain: set
+    
+    def add_block(self, block: HashBlock):
+        self.chain.add(block)
+    
+    def get_subset(self, o_chain) -> bool:
+        return o_chain.issubset(self.chain)

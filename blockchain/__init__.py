@@ -1,13 +1,13 @@
 # contains all other methods for blockchain
-from . import Block
-from . import BlockChain
-from . import Peer
+from . import block
+from . import blockchain
+from . import peer
 import hashlib
 
 
-def load_from_database() -> BlockChain.Chain:
+def load_from_database() -> blockchain.Chain:
     """Load blockchain from exiting mongo database"""
-    chain = BlockChain.Chain()
+    chain = blockchain.Chain()
     return chain
 
 
@@ -32,7 +32,7 @@ def validate_transaction() -> bool:
     pass
 
 
-def lookup_transactions(chain: BlockChain.Chain) -> []:
+def lookup_transactions(chain: blockchain.Chain) -> []:
     """
     takes a little while to lookup all transactions
     """

@@ -1,10 +1,10 @@
 import sys
 from pymongo import MongoClient
 
-from blockchain import BlockChain
-from blockchain.Block import Block
+from blockchain import blockchain
+from blockchain.block import Block
 from blockchain.security import create_hash_default
-from blockchain.Trasanction import Transaction
+from blockchain.trasanction import Transaction
 
 # TODO create method for indexing and looking up transaction details
 
@@ -41,7 +41,7 @@ class Database:
         collection = self.database["users"]
         collection.find_one_and_replace({"name": name}, user)
     
-    def save_block(self, block: BlockChain.Block):
+    def save_block(self, block: blockchain.Block):
         collection = self.database["blocks"]
         transactions2save = []
         for transaction in block.transactions:
@@ -51,22 +51,20 @@ class Database:
             transactions2save.append(transaction2save)
         inserted_doc = collection.insert_one(
             {"block_header": block.header, "transactions": transactions2save
-             }
-            )
+             })
         
         return inserted_doc
     
     def lookup_practitioner(self, orgnisation_id, practitioner_id):
         collection = self.database["practitioners"]
         return collection.find_one(
-            {'practitioner_id': practitioner_id, "organisation_id": orgnisation_id}
-            )
+            {'practitioner_id': practitioner_id, "organisation_id": orgnisation_id})
     
     def save_practitioners(self, p_id, details):
         collection = self.database["practitioners"]
         collection.find_one_and_replace({"practitioner_id": p_id}, details)
     
-    def load_all_blocks(self, chain: BlockChain.Chain):
+    def load_all_blocks(self, chain: blockchain.Chain):
         # load previously saved block from the database
         # verify and validate while loading
         collection = self.database["blocks"]
@@ -74,7 +72,7 @@ class Database:
         blocks = collection.find()
         for block in blocks:
             # verify block level data
-            print("Block############################")
+            # print("Block############################")
             blk = Block()
             blk.header = block['block_header']
             blk.transactions = []
@@ -99,7 +97,8 @@ class Database:
                 transaction_hashes.append(tr.hash)
                 blk.transactions.append(tr)
             expected_block_tr_data_hash = block['block_header']['data_hash']
-            print(f"comparing {expected_block_tr_data_hash} and {create_hash_default(transaction_hashes)} for {transaction_hashes}")
+            # print(f"comparing {expected_block_tr_data_hash} and
+            # {create_hash_default(transaction_hashes)} for {transaction_hashes}")
             if expected_block_tr_data_hash != create_hash_default(transaction_hashes):
                 print("Block TransactionHashes mismatch")
                 sys.exit()

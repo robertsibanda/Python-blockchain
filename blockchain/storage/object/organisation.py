@@ -1,9 +1,8 @@
-from blockchain.storage import Database
+from blockchain.storage import database
 
 
 class Org:
-    
-    def __init__(self, database: Database.Database, organisation_id):
+    def __init__(self, database: database.Database, organisation_id):
         self.database = database
         self.id = organisation_id
         self.pk = self.database.lookup_organisation(self.id)["organisation_pk"]

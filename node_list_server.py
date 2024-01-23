@@ -56,19 +56,19 @@ class Server(DatagramProtocol):
             for peer in self.clients:
                 all_peers = list(self.clients)
                 
-                print(f"List of all peers to be sent: {all_peers}")
+                # print(f"List of all peers to be sent: {all_peers}")
                 
                 # find the name of the peer to be removed
                 # peer to be removed is the one to receive list of peers
                 peer_name_to_remove = [eval(x)["name"] for x in self.clients if
                                        eval(x)["address"] == eval(peer)["address"]]
                 
-                print(f"peer name to be removed {peer_name_to_remove}")
+                # print(f"peer name to be removed {peer_name_to_remove}")
                 # set the value of the peer to be removed
                 peer_to_remove = {"address": eval(peer)["address"],
                                   "name": peer_name_to_remove[0]}
                 
-                print(f"peer to be removed: {peer_to_remove}")
+                # print(f"peer to be removed: {peer_to_remove}")
                 
                 # create a list of other peers leaving the peer ot receive the datagram
                 peer_addresses = "::::".join(
@@ -76,9 +76,9 @@ class Server(DatagramProtocol):
                      eval(peer)["address"] != peer_to_remove["address"]]
                     )
                 
-                print(f"peers to be send {peer_addresses}")
+                # print(f"peers to be send {peer_addresses}")
                 
-                print(f"Peer to recieve datagram {eval(peer)['address']}")
+                # print(f"Peer to recieve datagram {eval(peer)['address']}")
                 # send the remaining peers to the node
                 self.transport.write(f'peers->{peer_addresses}'.encode('utf-8'),
                                      (eval(peer)["address"])
@@ -99,6 +99,6 @@ class Server(DatagramProtocol):
 if __name__ == '__main__':
     # the node-list-server must always run on port 9009
     reactor.listenUDP(9009, Server())
-    #status_server_thread = threading.Thread(target=check_alive_status)
-    #status_server_thread.start()
+    # status_server_thread = threading.Thread(target=check_alive_status)
+    # status_server_thread.start()
     reactor.run()

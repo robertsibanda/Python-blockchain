@@ -1,13 +1,13 @@
-from jsonrpcserver import method, Success, Error, response, request
-import time
-from blockchain import BlockChain
-from .decorators import authenticated, authorised
-from blockchain.storage.object import organisation
+from jsonrpcserver import Success, Error
+
+from blockchain import blockchain
 from blockchain.storage import database
-from blockchain.storage.object.people import HealthProfessional, Patient
+from blockchain.storage.object.organisation import Org
+from blockchain.storage.object.people import HealthProfessional
+from .decorators import authenticated, authorised, broadcast
 
 
-def get_block_data(chain: BlockChain.Chain, block_number):
+def get_block_data(chain: blockchain.Chain, block_number):
     # get the transactions and header of block using block_id
     try:
         block = chain.get_block(block_number)
@@ -23,12 +23,13 @@ def is_chain_valid(chain):
 
 
 @authorised
-def create_new_organisation(db: Database.Database, details):
+@broadcast
+def create_new_organisation(db: database.Database, details):
     # submit a request to create a new organisation
     pass
 
 
-def register_new_practitioner(db: Database.Database, details):
+def register_new_practitioner(db: database.Database, details):
     """
     Register a new practioner in the chain
     :param db: ehr_chain database
@@ -41,7 +42,7 @@ def register_new_practitioner(db: Database.Database, details):
         organisation_id = details['organisation_id']
         practitioner_id = details['practitioner_id']
         
-        organisation = Organisation.Org(db, organisation_id)
+        organisation = Org(db, organisation_id)
         
         practitioner_found = organisation.get_practitioner(practitioner_id)
         
@@ -66,10 +67,12 @@ def register_new_practitioner(db: Database.Database, details):
     
 
 @authorised
+@broadcast
 def new_patient(details):
     return Success("patient added")
 
 
 @authenticated
+@broadcast
 def add_record(details):
     return Success("record added")

@@ -2,6 +2,9 @@ from typing import Callable
 from blockchain.storage.object.people import Person, Patient, HealthProfessional
 
 
+# TODO implement authorisation and authentication
+
+
 def authenticated(func: Callable):
     def wrapper(*args, **kwargs):
         print("Arguments : ", args)
@@ -18,4 +21,9 @@ def authorised(func: Callable):
         :param kwargs:
         :return:
         """
+        return func(*args, **kwargs)
+
+
+def broadcast(func: Callable):
+    def wrapper(*args, **kwargs):
         return func(*args, **kwargs)

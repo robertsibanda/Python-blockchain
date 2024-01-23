@@ -1,0 +1,40 @@
+syntax = "proto3";
+
+// TODO create rpc calls for sharing new transactions for validation and verification
+package PyHealthChain;
+
+service BlockDownloader {
+    rpc DownloadBlock(BlockRequest) returns (BlockResponse) {};
+    rpc DownloadBlocks(BlocksRequest) returns (stream Block) {};
+    rpc GetHashBlocks(HashBlocksRequest) returns (stream HashBlock);
+ }
+
+message HashBlock {
+    string hash = 1;
+    string prev_hash = 2;
+    string data_hash = 3;
+}
+
+message HashBlocksRequest {
+    string hash = 1;
+}
+
+message Block {
+    string header = 1;
+    string transactions = 2;
+}
+
+message BlocksRequest {
+    string string_block = 1;
+}
+
+ message BlockRequest {
+    string id = 1;
+
+ }
+
+ message BlockResponse {
+    Block block = 1;
+ }
+
+

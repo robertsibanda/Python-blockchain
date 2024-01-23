@@ -1,8 +1,8 @@
 from twisted.internet.protocol import DatagramProtocol
 from twisted.internet import reactor
 from random import randint
-from BlockChain.Block import Block
-from BlockChain.BlockChain import Chain
+from blockchain.block import Block
+from blockchain.blockchain import Chain
 
 
 chain = Chain([])
