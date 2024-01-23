@@ -2,7 +2,6 @@
 # .
 import hashlib
 
-from .BlockChain import create_hash
 
 MAX_TRANSACTIONS = 2  # max number of transactions in a block
 
@@ -33,6 +32,7 @@ class Block:
         return
     
     def close_block(self):
+        # TODO save block to database
         transaction_hashes = []
         for transaction in self.transactions:
             transaction_hashes.append(transaction.hash)

@@ -1,5 +1,5 @@
 from typing import Callable
-from BlockChain.Storage.Object.People import Person, Patient, HealthProfessional
+from blockchain.storage.object.people import Person, Patient, HealthProfessional
 
 
 def authenticated(func: Callable):

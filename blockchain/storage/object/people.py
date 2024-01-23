@@ -1,15 +1,16 @@
-from BlockChain.Security import verify_data, encrypt_data
+from blockchain.security import verify_data, encrypt_data
+from dataclasses import dataclass
 
 
+@dataclass
 class Person:
-    
-    def __init__(self, name, pk):
-        self.name = name
-        self.public_key = pk
+    name: str
+    public_key: str
 
+
+# TODO change all classes to dataclasses + inheritance
 
 class Patient(Person):
-    
     def __init__(self, name, pk):
         super().__init__(name, pk)
         self.records = None  # load records from database

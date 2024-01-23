@@ -1,19 +1,30 @@
 from jsonrpcserver import method, Success, Error, response, request
 import time
-from BlockChain import BlockChain
+from blockchain import BlockChain
 from .decorators import authenticated, authorised
-from BlockChain.Storage.Object import Organisation
-from BlockChain.Storage import Database
-from BlockChain.Storage.Object.People import HealthProfessional, Patient
+from blockchain.storage.object import organisation
+from blockchain.storage import database
+from blockchain.storage.object.people import HealthProfessional, Patient
 
 
-@authenticated
+def get_block_data(chain: BlockChain.Chain, block_number):
+    # get the transactions and header of block using block_id
+    try:
+        block = chain.get_block(block_number)
+        if block is not None:
+            return Success(block)
+    except IndexError:
+        return Error({"message": f"block {block_number} not found"})
+
+
+@authorised
 def is_chain_valid(chain):
     return True
 
 
+@authorised
 def create_new_organisation(db: Database.Database, details):
-    #submit a request to create a new organisation
+    # submit a request to create a new organisation
     pass
 
 
@@ -39,7 +50,6 @@ def register_new_practitioner(db: Database.Database, details):
         if organisation.get_practitioner(practitioner_id) is None:
             return Success({"Error": "You are not able to register under this organisation"})
         
-        
         if practitioner_found["pk"] != "":
             return Success({"Error": "Practioner is already registered"})
         
@@ -52,10 +62,9 @@ def register_new_practitioner(db: Database.Database, details):
         
         return 'acc_created'
     except KeyError as ex:
-        return Success({"Error" : f"Missing request data {ex}"})
+        return Success({"Error": f"Missing request data {ex}"})
     
 
-@authenticated
 @authorised
 def new_patient(details):
     return Success("patient added")
@@ -64,10 +73,3 @@ def new_patient(details):
 @authenticated
 def add_record(details):
     return Success("record added")
-
-
-@authenticated
-def get_block(block_id, chain):
-    for block in chain:
-        if block.hash == block_id:
-            return Success(block)

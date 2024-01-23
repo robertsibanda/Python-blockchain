@@ -1,14 +1,14 @@
 # Robert Sibanda (robertsibanda20@gmail.com)
 # .
 
-class Peer:
-    def __init__(self, addr, public_key, name):
-        self.address = addr
-        self.pk = public_key
-        self.name = name
+from dataclasses import dataclass
 
-    def get_address(self):
-        return self.address
+
+@dataclass()
+class Peer:
+    address: str
+    pk: str
+    name: str
 
 
 def save_peer(database, peer):
@@ -26,10 +26,10 @@ def peer_exists(peers, peer) -> bool:
 
 
 class Peers:
-
+    
     def __init__(self):
         self.peers = set()
-
+    
     def lookup(self, addr):
         for peer in self.peers:
             if peer.address == addr:

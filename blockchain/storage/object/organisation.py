@@ -1,4 +1,4 @@
-from BlockChain.Storage import Database
+from blockchain.storage import Database
 
 
 class Org:

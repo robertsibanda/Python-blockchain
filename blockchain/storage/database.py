@@ -1,9 +1,12 @@
 import sys
 from pymongo import MongoClient
 
-from BlockChain import BlockChain, create_hash_default
-from BlockChain.Block import Block
-from BlockChain.Trasanction import Transaction
+from blockchain import BlockChain
+from blockchain.Block import Block
+from blockchain.security import create_hash_default
+from blockchain.Trasanction import Transaction
+
+# TODO create method for indexing and looking up transaction details
 
 
 class Database:
@@ -82,7 +85,7 @@ class Database:
                 # verify transaction level data
                 expected_tr_hash = transaction['hash']
                 tr = Transaction(transaction['type'], transaction['data'],
-                                 transaction['metadata']
+                                 transaction['metadata'], transaction['hash']
                                  )
                 
                 print(f"Comparing hashed {expected_tr_hash} and {create_hash_default(tr.data)}",

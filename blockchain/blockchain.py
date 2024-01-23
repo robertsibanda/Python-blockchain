@@ -2,12 +2,13 @@
 # .
 
 import hashlib
-from . import Block
+from .Block import Block
 
 
 # commented
 def create_hash(data):
     return hashlib.sha256(f'{data}'.encode('utf-8')).hexdigest()
+
 
 class Chain:
     
@@ -27,27 +28,27 @@ class Chain:
         return False
     
     def create_genesis_block(self) -> Block:
-        blok = Block.Block(0, 'Genesis Block')
-        blok.hash = create_hash(blok.transactions)
+        blok = Block(0, 0)
+        blok.close_block()
+        blok.header["hash"] = 0
         return blok
     
     def create_block_data_hash(self, data):
-            hasher = hashlib.sha256()
-            [hasher.update(f"{item}".encode('utf-8')) for item in data]
-            return hasher.hexdigest()
-        
+        hasher = hashlib.sha256()
+        [hasher.update(f"{item}".encode('utf-8')) for item in data]
+        return hasher.hexdigest()
+    
     def add_new_block(self, new_block: Block):
-        
-        
         """
         new block is added ,
         hash calculated using hashlib 'https://hashlib.com'
         linked with previous block`s hash
         """
         new_block.header["prev_hash"] = self.chain[-1].header["hash"]
-        new_block.header["hash"] = self.create_block_data_hash([new_block.header["prev_hash"], new_block.header["data_hash"]])
+        new_block.header["hash"] = self.create_block_data_hash(
+            [new_block.header["prev_hash"], new_block.header["data_hash"]]
+            )
         
-    
         self.chain.append(new_block)
         self.refresh_block()
     
@@ -56,7 +57,7 @@ class Chain:
         return self.chain[-1]
     
     def get_hashes(self):
-        return [(block.hash, block.prev_hash) for block in self.chain]
+        return [(block.header["hash"], block.header["prev_hash"]) for block in self.chain]
     
     def add_transaction_to_block(self, unsaved_block):
         pass
@@ -68,13 +69,16 @@ class Chain:
                 """ignore the first block"""
                 continue
             
-            if (self.chain[self.chain.index(blck) - 1].header["hash"] !=
-                    blck.header["prev_hash"]):
+            if (self.chain[self.chain.index(blck) - 1].header["hash"]
+                    != blck.header["prev_hash"]):
+                
                 """chech the link between adjuscent blocks"""
                 print("Failed between blocks")
                 return False
             
-            if blck.header["hash"] != self.create_block_data_hash([blck.header["prev_hash"], blck.header["data_hash"]]):
+            if blck.header["hash"] != self.create_block_data_hash(
+                    [blck.header["prev_hash"], blck.header["data_hash"]]
+                    ):
                 """check the validity of a block`s hash based on data contents"""
                 print(f"comapring block headers \n{blck.header['hash']}")
                 tobehashed = [blck.header["data_hash"], blck.header["prev_hash"]]
@@ -82,3 +86,11 @@ class Chain:
                 print("Failed in integrity")
                 return False
         return True
+    
+    def get_block(self, block_number):
+        return [block for block in self.chain
+                if block.header["hash"] == block_number]
+
+    def delete_all_blocks(self):
+        pass
+    
