@@ -3,6 +3,7 @@
 # this is the Node server file
 import sys
 import threading
+import time
 from concurrent import futures
 from random import randint
 
@@ -50,6 +51,18 @@ chains_to_validate = []
 # open block for adding new transactions
 open_block = Block()
 
+# node responsible for the new block on the network
+block_leader = False
+
+# old block not yet closed
+open_block_old = False
+
+# transaction queue of all transactions
+transaction_queue = []
+
+# valid and verified transactions
+validated_transaction_queue = []
+
 
 class Server(DatagramProtocol):
     
@@ -92,7 +105,6 @@ class Server(DatagramProtocol):
                 
                 if data[1] == '':
                     print("No peers in the network")
-                    self.new_join = False
                     return
                 
                 recvd_peers = data[1].split('::::')
@@ -132,7 +144,6 @@ class Server(DatagramProtocol):
                             new_node.address
                             )
                 
-                self.new_join = False
                 print('\nPeers :\n{}'.format(self.peers))
             return
         
@@ -281,10 +292,10 @@ class Server(DatagramProtocol):
                                 register_response
                                 )]
                             signed_encrypted_response = identity.sign_data(
-                                encrypted_response
-                                )
-                            self.transport.write(f"{signed_encrypted_response}0000{encrypted_response}".encode(
-                                'utf-8'), signing_peer.address)
+                                encrypted_response)
+                            self.transport.write(f"{signed_encrypted_response}0000"
+                                                 f"{encrypted_response}".encode('utf-8'),
+                                                 signing_peer.address)
                         
                 if data_request[0] == 'register-response':
                     # decrypt the recvd data
@@ -297,15 +308,10 @@ class Server(DatagramProtocol):
                     
                     elif decrypted_response["response"] == "-chain":
                         # my chain is smaller
-                        chain_hashes_request = {"response": "get-chain-hashed"}
-                        encrypted_response = [
-                            "get-chain-hashes",
-                            encrypt_data(rsa.PublicKey.load_pkcs1(
-                            signing_peer.pk), chain_hashes_request)]
-                        
-                        signed_encrypted_response = identity.sign_data(encrypted_response)
-                        self.transport.write(f"{signed_encrypted_response}0000{encrypted_response}".
-                                             encode('utf-8'), signing_peer.address)
+                        print(f"my chainis smaller that : {signing_peer.name}")
+                        chian_validator = ChainValidator(self.peers, chain, database)
+                        chian_validator.get_all_chains_tp()
+                        return
                     
                     elif decrypted_response["response"] == "+chain":
                         # my chain is larger
@@ -333,7 +339,7 @@ class Server(DatagramProtocol):
                     # must consider hashes from multiple peers
                     chain_hash_data = identity.derypt_data(data_request[1])
                     print(f"Hashes recieved from {signing_peer.name}")
-                    print(chain_hash_data)
+                    # print(chain_hash_data)
                     
                     # add hashes to chains to validate
                     # handle chain copying and validation in separate thread
@@ -344,20 +350,16 @@ class Server(DatagramProtocol):
                     # download_peer_blocks(signing_peer.address[0], chain,
                     # str(chain.get_last_block().header["hash"]), database)
                     
-                    chian_validator = ChainValidator(self.peers, chain.get_last_block(),
+                    chian_validator = ChainValidator(self.peers,
                                                      chain, database)
-                    chian_validator.get_all_chains()
+                    chian_validator.get_all_chains_tp()
                     return
-                
-                for blk in chain.chain:
-                    print('\nBlock ', chain.chain.index(blk))
-                    print(blk)
             else:
                 print('Invalid data')
         
-        except Exception as ex:
+        except ValueError as excpt:
             data_invalid = True
-            print(f"Error : {ex}")
+            print(f"Error : {excpt}")
         
         # reactor.callInThread(self.doStop())
     
@@ -389,7 +391,7 @@ def add_transaction_to_block(transaction):
         open_block = Block()
         open_block.add_new_transaction(transaction)
     return
-
+    
 
 @method
 def reg_new_practitioner(details):
@@ -401,7 +403,7 @@ def reg_new_practitioner(details):
     return result
 
 
-def rpc_server():
+def grpc_server():
     port = "50051"
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
     block_pb2_grpc.add_BlockDownloaderServicer_to_server(BlockDownloader(chain), server)
@@ -411,6 +413,24 @@ def rpc_server():
     server.wait_for_termination()
 
 
+def block_time_monitor():
+    # close block when not empty after a time limit and if you are the block leader
+    # TODO block voting(concencus), allow for block leader, manipulate open_block_old
+    global block_leader, open_block_old
+    start_time = time.time()
+    
+    while True:
+        elapsed_time = time.time() - start_time
+        if (elapsed_time/60 > 1) and block_leader and open_block_old:
+            
+            open_block.close_block()
+            
+            block_leader = False
+            open_block_old = False
+        else:
+            time.sleep(3)
+        
+    
 def main():
     # all nodes must not use port 9009 -> its for node-list-server
     port = randint(1000, 5000)
@@ -424,7 +444,7 @@ if __name__ == '__main__':
         JSONRPC_THREAD = threading.Thread(target=serve)
         JSONRPC_THREAD.start()
         
-        GRPC_THREAD = threading.Thread(target=rpc_server)
+        GRPC_THREAD = threading.Thread(target=grpc_server)
         GRPC_THREAD.start()
         main()
     except KeyboardInterrupt:

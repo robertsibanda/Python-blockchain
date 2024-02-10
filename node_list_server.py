@@ -3,7 +3,7 @@ from twisted.internet import reactor
 from rsa import PublicKey
 import threading
 
-accepable_nodes = set()
+acceptable_nodes = set()
 
 
 def check_node_acceptability(node):

@@ -16,7 +16,7 @@ class Chain:
     
     def __init__(self):
         """
-        initilize chain with genesis block, staring point of chain
+        initilize chain with genesis block, starting point of chain
         """
         self.chain = [self.create_genesis_block()]
     
@@ -99,10 +99,20 @@ class Chain:
     
 @dataclass
 class HashChain:
-    chain: set
+    chain: set()
     
     def add_block(self, block: HashBlock):
         self.chain.add(block)
     
     def get_subset(self, o_chain) -> bool:
-        return o_chain.issubset(self.chain)
+        return set(o_chain.chain).issubset(set(self.chain))
+    
+    def __le__(self, other):
+        if isinstance(other, self.__class__):
+            return len(self.chain) <= len(other.chain)
+        
+    def __lt__(self, other):
+        if isinstance(other, self.__class__):
+            return len(self.chain) < len(other.chain)
+        
+        

@@ -25,7 +25,7 @@ message Block {
 }
 
 message BlocksRequest {
-    string string_block = 1;
+    string hash = 1;
 }
 
  message BlockRequest {

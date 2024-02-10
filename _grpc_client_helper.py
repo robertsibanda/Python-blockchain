@@ -6,17 +6,20 @@ import sys
 import time
 import grpc
 import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import block_pb2
 import block_pb2_grpc
 from blockchain.block import Block, HashBlock
 from blockchain.trasanction import HashTransaction, Transaction
-from blockchain.blockchain import HashChain
-
+from blockchain.blockchain import HashChain, Chain
+from blockchain.peer import Peer
 
 # TODO make all commuications singed and encrypted
 
+
 def download_peer_block(peer_address, block_id):
+    print(f"Downloading chain from {peer_address}")
     with grpc.insecure_channel(peer_address) as channel:
         stub = block_pb2_grpc.BlockDownloaderStub(channel)
         response = stub.DownloadBlock(block_pb2.BlockRequest(id=block_id))
@@ -27,8 +30,11 @@ def download_peer_blocks(peer_address, chain, block_id, database=None):
     with grpc.insecure_channel(f"{peer_address}:50051") as channel:
         stub = block_pb2_grpc.BlockDownloaderStub(channel)
         
-        for block in stub.DownloadBlocks(block_pb2.BlocksRequest(string_block=block_id)):
+        for block in stub.DownloadBlocks(
+                block_pb2.BlocksRequest(hash=str(block_id))):
             block_header = eval(block.header)
+            
+            print(f"block block : {block}")
             
             # ignore the first block
             if block_header["hash"] == 0 and len(chain.chain) == 1:
@@ -74,75 +80,87 @@ class ChainValidator:
     
     # TODO re-do this class for cleaner code -> last-block can be found on chain
     
-    def __init__(self, peers, last_block, chain, database):
+    def __init__(self, peers, chain, database):
         self.peers = peers  # a set of peers
-        self.last_block = last_block  # last block on my chain
-        self.largest_valid_peer_chain = None
-        self.larget_valid_peer_node = None
-        self.larget_valid_block_hash = None
         self.chains_to_validate = {}
-        self.magority_downloaded = False
         self.chain = chain
+        self.last_block_hash = chain.get_last_block().header["hash"]
         self.database = database
-    
+        
+        print("Initializing chain validator")
+        
     def get_chain_sizes(self):
         pass
     
     def download_chain(self, peer):
-        hash_chain = HashChain()
-        with grpc.insecure_channel(peer.address) as channel:
+        hash_chain = HashChain(chain=set())
+        print(f"Downloading from : {peer.address[0]}:50051")
+        with grpc.insecure_channel(f"{peer.address[0]}:50051") as channel:
             stub = block_pb2_grpc.BlockDownloaderStub(channel)
-            for block in stub.GetHashBlocks(block_pb2.HashBlocksRequest(hash="")):
-                hash_chain.add_block(block)
-            self.chains_to_validate[peer.name] = hash_chain
+            for block in stub.GetHashBlocks(
+                    block_pb2.HashBlocksRequest(hash=str(self.last_block_hash))):
+                print(f"hash block downloaded {block}")
+                hash_chain.add_block(HashBlock(hash=block.hash,
+                                               previous_hash=block.prev_hash,
+                                               data_hash=block.data_hash))
+        return hash_chain
     
-    def download_monitor(self):
-        # TODO replace monitor thread with async::await
-        # monitor if all threads have finished downloading
-        # TODO replace this method with multiple smaller methods
-
-        thread_names_to_stop = [peer.name for peer in self.peers]
-        time_count = 0
-        
-        while [x in [thread.name for thread in threading.enumerate()]
-               for x in thread_names_to_stop]:
-            # threads are still downloading block-hashes-chain
-            time_count += 1
-            time.sleep(1)
+    def get_all_chains_tp(self):
+        print(f"staring threadpool executor : {len(self.peers)}")
+        with ThreadPoolExecutor(max_workers=len(self.peers)) as executor:
+            future_to_chain = {
+                executor.submit(self.download_chain, peer): peer for peer in self.peers}
             
+            for future in as_completed(future_to_chain):
+                peer = future_to_chain[future]
+                try:
+                    data = future.result()
+                    self.chains_to_validate[peer] = data
+                except Exception as ex:
+                    print("TP GRPC Error : ", ex)
+        
+        print("downloaded chains :")
         lg_chain = list(self.chains_to_validate.values())[0]
         lg_node = list(self.chains_to_validate.keys())[0]
         
         for peer, chain in self.chains_to_validate.items():
-            if chain > lg_chain:
+            print(f"{peer} : {chain}")
+            if chain >= lg_chain:
                 lg_chain = chain
                 lg_node = peer
         
         smaller_chains = [chain for chain in list(self.chains_to_validate.values())
                           if chain < lg_chain]
         
+        print(f"Smaller chains : {smaller_chains}")
+        
         subset = 0
         for s_chain in smaller_chains:
             if lg_chain.get_subset(s_chain):
                 subset += 1
         
+        print(f"{subset / len(list(self.chains_to_validate.values())) :.2f} "
+              f"% agree with largest chain")
+        
         if subset / len(list(self.chains_to_validate.values())) >= 0.5:
             # smaller chains are part of the larger chain
-            download_peer_blocks(lg_node.address, self.chain,
-                                 self.chain.get_last_block(), self.database)
+            print(f"Largest node : {lg_node} with {lg_chain}")
+            download_peer_blocks(f"{lg_node.address[0]}",
+                                 self.chain, self.chain.get_last_block().header['hash'],
+                                 self.database)
+        elif subset / len(list(self.chains_to_validate.values())) == 0 and len(self.peers) == 1:
+            print(f"One node : {lg_node} with {lg_chain}")
+            download_peer_blocks(f"{lg_node.address[0]}",
+                                 self.chain, self.chain.get_last_block().header['hash'],
+                                 self.database)
         else:
+            print(f"no peer agree still downloading")
             # reject the larger chain and go for a smaller chain
-            self.peers.pop(lg_node)
+            download_peer_blocks(f"{lg_node.address[0]}", self.chain,
+                                 self.chain.get_last_block().header['hash'], self.database
+                                 )
+            # self.peers.pop(lg_node)
             # TODO replace redownload with re-validation
-            self.get_all_chains()  # repeat the process
+            # self.get_all_chains_tp()  # repeat the process
         return
-        
-    def get_all_chains(self):
-        monitor_thread = threading.Thread(target=self.download_monitor())
-        monitor_thread.start()
-        
-        for peer in self.peers:
-            th = threading.Thread(target=self.download_chain(peer))
-            th.name = peer.name
-            th.start()
-            th.join()
+
