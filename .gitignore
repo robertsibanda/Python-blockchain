@@ -4,6 +4,8 @@ public.pem
 /.vscode
 .idea
 .pyc
+.fleet/
+/.fleet
 /.idea
 test
 test2.

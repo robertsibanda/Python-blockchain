@@ -5,10 +5,13 @@ import threading
 
 acceptable_nodes = set()
 
+leader_node = None
+
 
 def check_node_acceptability(node):
     # check if node does not already exist on the network with different address
     # check if the node is authentic
+    # TODO remove duplicates, make sure peer is already registered
     return True
 
 
@@ -26,10 +29,12 @@ class Node:
         self.pk = pk
 
 
+# TODO work on block_leader
 class Server(DatagramProtocol):
     
     def __init__(self):
         self.clients = set()
+        self.leader_node = None
     
     def datagramReceived(self, datagram, addr):
         datagram = datagram.decode('utf-8')
@@ -38,7 +43,9 @@ class Server(DatagramProtocol):
         
         try:
             # data from node is dictionary
-            
+            old_peers = self.clients
+            new_client = None
+
             if dict_data["status"] == "ready":
                 """
                 message recvd from a new node ready to enter the network
@@ -50,13 +57,15 @@ class Server(DatagramProtocol):
                 if check_node_acceptability(new_client):
                     # add new node if it is acceptable
                     self.clients.add(str(new_client))
-            
-            peers = "000000".join([str(x) for x in self.clients])
+
+                    print(f"Length of clients : {self.clients.__len__()}")
+                    if self.clients.__len__() == 1:
+                        self.leader_node = new_client
             
             for peer in self.clients:
                 all_peers = list(self.clients)
                 
-                # print(f"List of all peers to be sent: {all_peers}")
+                print(f"Leade Node: {self.leader_node}")
                 
                 # find the name of the peer to be removed
                 # peer to be removed is the one to receive list of peers
@@ -76,6 +85,8 @@ class Server(DatagramProtocol):
                      eval(peer)["address"] != peer_to_remove["address"]]
                     )
                 
+                # TODO check if peer is alive before sending
+                
                 # print(f"peers to be send {peer_addresses}")
                 
                 # print(f"Peer to recieve datagram {eval(peer)['address']}")
@@ -83,7 +94,7 @@ class Server(DatagramProtocol):
                 self.transport.write(f'peers->{peer_addresses}'.encode('utf-8'),
                                      (eval(peer)["address"])
                                      )
-        except KeyError:
+        except KeyError as ex:
             # data from mobile client is list
             
             if dict_data["request"] == "node-request":
@@ -93,7 +104,12 @@ class Server(DatagramProtocol):
             if dict_data["request"] == "node-report":
                 # report a node not responding
                 pass
-            pass
+
+            if dict_data["request"] == "node-leader":
+                # a new node requesting leader_node (current_block closer)
+                self.transport.write(f"node-leader->{self.leader_node['name']}")
+            
+            print(f"KeyError : {ex}")
 
 
 if __name__ == '__main__':

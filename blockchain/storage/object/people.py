@@ -1,11 +1,17 @@
 from dataclasses import dataclass
-
+import datetime
 from blockchain.security import verify_data
 
 
 @dataclass
 class Person:
-    name: str
+    firstname: str
+    lastname: str
+    dob: str  # TODO runtime conversion to datime
+    gender: str
+    id_no : str
+    address: str
+    contact_infor: str
 
 
 @dataclass

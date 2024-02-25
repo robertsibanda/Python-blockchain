@@ -18,8 +18,8 @@ def get_block_data(chain: blockchain.Chain, block_number):
 
 
 @authorised
-def is_chain_valid(chain):
-    return True
+def is_chain_valid(chain: blockchain.Chain):
+    return chain.is_valid()
 
 
 @authorised
@@ -68,7 +68,12 @@ def register_new_practitioner(db: database.Database, details):
 
 @authorised
 @broadcast
-def new_patient(details):
+def new_patient(db: database.Database ,details):
+    # [firstname, lastname, dob, gender, idnmber, addr, phone]
+    # image later
+
+    for key, value in details.items():
+        pass # TODO 1
     return Success("patient added")
 
 

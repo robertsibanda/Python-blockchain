@@ -17,6 +17,9 @@ from blockchain.peer import Peer
 
 # TODO make all commuications singed and encrypted
 
+node_peers = None
+database = None
+
 
 def download_peer_block(peer_address, block_id):
     print(f"Downloading chain from {peer_address}")
@@ -66,19 +69,23 @@ def download_peer_blocks(peer_address, chain, block_id, database=None):
             if expected_data_hash != blk.header["data_hash"]:
                 # transactions do not match hash
                 # transactions may have been altered
-                # TODO create a way to counter modified transactions
-                print("Transaction integrity check faile while downloading!!")
+                
+                # global node_peers, database
+
+                chain_validator = ChainValidator(node_peers, Chain(), database)
+                chain_validator.corrupted_peers.add(peer_address)
+                chain_validator.get_all_chains_tp()
+
+                print("Transaction integrity check failed while downloading!!")
                 sys.exit()
             
             database.save_block(blk)
             chain.add_new_block(blk)
         
-        return  # done downloading the blocks to my chain
+    return True  # done downloading the blocks to my chain
 
 
 class ChainValidator:
-    
-    # TODO re-do this class for cleaner code -> last-block can be found on chain
     
     def __init__(self, peers, chain, database):
         self.peers = peers  # a set of peers
@@ -86,8 +93,16 @@ class ChainValidator:
         self.chain = chain
         self.last_block_hash = chain.get_last_block().header["hash"]
         self.database = database
+        self.corrupted_peers = set() # addresses
+
+        # global node_peers, database
+        node_peers = self.peers
+        database = self.database
         
         print("Initializing chain validator")
+        if len(self.peers) < 1:
+            print("All Peers corrupt")
+            return
         
     def get_chain_sizes(self):
         pass
@@ -105,8 +120,16 @@ class ChainValidator:
                                                data_hash=block.data_hash))
         return hash_chain
     
+    def valida_chains(lg_chain, other_chains):
+        pass
+    
     def get_all_chains_tp(self):
         print(f"staring threadpool executor : {len(self.peers)}")
+
+        self.peers = [peer for peer in self.peers if
+                      not self.corrupted_peers.__contains__(peer)]
+            # TODO fix address issue
+
         with ThreadPoolExecutor(max_workers=len(self.peers)) as executor:
             future_to_chain = {
                 executor.submit(self.download_chain, peer): peer for peer in self.peers}
@@ -148,7 +171,9 @@ class ChainValidator:
             download_peer_blocks(f"{lg_node.address[0]}",
                                  self.chain, self.chain.get_last_block().header['hash'],
                                  self.database)
-        elif subset / len(list(self.chains_to_validate.values())) == 0 and len(self.peers) == 1:
+        elif (subset / len(list(self.chains_to_validate.values())) == 0
+              and len(self.peers) == 1):
+            
             print(f"One node : {lg_node} with {lg_chain}")
             download_peer_blocks(f"{lg_node.address[0]}",
                                  self.chain, self.chain.get_last_block().header['hash'],
@@ -160,7 +185,6 @@ class ChainValidator:
                                  self.chain.get_last_block().header['hash'], self.database
                                  )
             # self.peers.pop(lg_node)
-            # TODO replace redownload with re-validation
             # self.get_all_chains_tp()  # repeat the process
         return
 

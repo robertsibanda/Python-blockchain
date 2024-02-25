@@ -1,64 +1,53 @@
-import sys
-import threading
-import rsa
-
 import blockchain.blockchain
-from blockchain.security import encrypt_data
+from blockchain.blockchain import Chain
+from blockchain.peer import Peer
 
 
 def process_peer_chain_request(chain: blockchain.blockchain.Chain):
     return [block.header['hash'] for block in chain.chain]
 
+
+def process_close_block(transaction_queue: list, transactions):
     
-def process_peer_registration(identity, signing_peer, new_node_chain_props, my_chain_props
-                              ):
-    if new_node_chain_props == my_chain_props:
-        # chains are at the same level and are probably equal
-        # send response notifying new node that chains at same level
-        
-        register_response = {"response": "chains-equal"}
-        
-        encrypted_response = ["register-response",
-                              encrypt_data(rsa.PublicKey.load_pkcs1(signing_peer.pk),
-                                           register_response
-                                           )]
-        
-        signed_encrypted_response = identity.sign_data(encrypted_response)
-        
-        return f"{signed_encrypted_response}0000{encrypted_response}".encode('utf-8')
+    transaction_hashes = [tr.hash for tr in transaction_queue]
+    found_hash = [tr in transaction_hashes for tr in transactions]
     
-    if new_node_chain_props != my_chain_props:
-        # check length of chain
-        if my_chain_props["chain-length"] > new_node_chain_props["chain-length"]:
-            # my chain is higher that new node chain
-            # send response notifying of my chain size and other blocks
-            register_response = {"response": "-chain"}
-            encrypted_response = ["register-response",
-                                  encrypt_data(rsa.PublicKey.load_pkcs1(signing_peer.pk),
-                                               register_response
-                                               )]
-            signed_encrypted_response = identity.sign_data(encrypted_response)
-            return f"{signed_encrypted_response}0000{encrypted_response}".encode('utf-8')
+    new_block_transactions = []
+    
+    if found_hash.count(False) > 0:
+        # some transactions not found
+        # request from other nodes
+        return {"found": False}
+    
+    for tr in transaction_queue:
+        for tr2 in transaction_hashes:
+            if tr == tr2:
+                new_block_transactions.append(tr)
+                transaction_queue.remove(tr)
+                
+    return {"transactions": new_block_transactions, "found": True}
+
+
+def new_node_regiser(new_node_props: dict, chain: Chain, peer: Peer,
+                     chains_to_validate: dict):
+    
+    my_chain_props = {
+        "chain-length": str(len(chain.chain)),
+        "last-block": chain.get_last_block().header['hash']}
+
+    if new_node_props[1] == my_chain_props:
+        return {"response": "chains-equal"}
+
+    if new_node_props != my_chain_props:
+        if my_chain_props["chain-length"] > new_node_props[1]["chain-length"]:
+            return {"response": "-chain"}
+
+        if my_chain_props["chain-length"] < new_node_props[1]["chain-length"]:
+            # TODO work on copying chain
+            return {"response": "+chain"}
         
-        elif my_chain_props["chain-length"] < new_node_chain_props["chain-length"]:
-            # my chain is smaller than new node chain
-            # request other missing blocks
-            register_response = {"response": "+chain"}
-            encrypted_response = ["register-response",
-                                  encrypt_data(rsa.PublicKey.load_pkcs1(signing_peer.pk),
-                                               register_response
-                                               )]
-            signed_encrypted_response = identity.sign_data(encrypted_response)
-            return f"{signed_encrypted_response}0000{encrypted_response}".encode('utf-8')
-        
-        elif my_chain_props["chain-length"] == new_node_chain_props["chain-length"]:
-            # chain size is the same with unmatching block hashes
-            # one / all the chains are incorrect
-            # check validity of chains
-            register_response = {"response": "^hash"}
-            encrypted_response = ["register-response",
-                                  encrypt_data(rsa.PublicKey.load_pkcs1(signing_peer.pk),
-                                               register_response
-                                               )]
-            signed_encrypted_response = identity.sign_data(encrypted_response)
-            return f"{signed_encrypted_response}0000{encrypted_response}".encode('utf-8')
+        if my_chain_props["last-block"] != new_node_props[1]["last-block"]:
+            return {"response": "^hash"}
+    
+
+    

@@ -1,6 +1,8 @@
 from blockchain.storage import database
+from dataclasses import dataclass
 
 
+@dataclass
 class Org:
     def __init__(self, database: database.Database, organisation_id):
         self.database = database

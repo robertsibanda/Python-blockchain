@@ -1,6 +1,3 @@
-# Robert Sibanda (robertsibanda20@gmail.com)
-# .
-# this is the Node server file
 import sys
 import threading
 import time
@@ -16,7 +13,8 @@ from twisted.internet.protocol import DatagramProtocol
 import block_pb2_grpc
 from _grpc_client_helper import ChainValidator
 from _grpc_server_helper import BlockDownloader
-from _server_helper import process_peer_chain_request
+from _server_helper import process_peer_chain_request, new_node_regiser, \
+    process_close_block
 from blockchain.block import Block
 from blockchain.blockchain import Chain
 from blockchain.peer import Peer, peer_exists, save_peer
@@ -27,8 +25,7 @@ from blockchain.trasanction import Transaction
 from clients.rpc import register_new_practitioner
 
 
-
-database = Database('127.0.0.1', 27017, 'ehr_chain')
+database = Database('172.17.0.3', 27017, 'ehr_chain')
 
 chain = Chain()
 
@@ -46,13 +43,8 @@ if chain.is_valid() is not True:
 # create an instance of the identity used to sign and encrypt data
 identity = Identity()
 
-chains_to_validate = []
-
 # open block for adding new transactions
 open_block = Block()
-
-# node responsible for the new block on the network
-block_leader = False
 
 # old block not yet closed
 open_block_old = False
@@ -65,14 +57,16 @@ validated_transaction_queue = []
 
 
 class Server(DatagramProtocol):
-    
     def __init__(self, host, port):
         self.peers = set()
         self.id = '{}:{}'.format(host, port)
         self.address = (host, port)
-        self.server = '192.168.43.252', 9009
+        self.server = '172.17.0.2', 9009
         self.index_being_validated = 0
         self.new_join = True
+        self.chain_leader = False
+        self.chain_leader_n = None
+        self.chains_to_validate = {}
         print('working on id : ', self.id)
     
     def startProtocol(self):
@@ -82,20 +76,20 @@ class Server(DatagramProtocol):
         self.transport.write(str(node_identity).encode('utf-8'), self.server)
     
     def datagramReceived(self, datagram: bytes, addr):
-        """
-        process data received from others peers
-        register    - peer registering itself on the network
-        peers       - list of all peers that are currently
-                       live on the network
-        transaction - a data transaction
-        status      - chech the status of nodes on the network
-        """
+        
         if addr[1] == self.server[1]:
             '''
             handle comms comming from node with register of
             online nodes
             '''
             data = datagram.decode().split('->')
+        
+            if data[1] == '':
+                
+                print("No peers in the network")
+                self.chain_leader = True
+                self.new_join = False
+                return
             
             if data[0] == 'peers':
                 print(f"Data recieved from node-list-srver {data}")
@@ -103,11 +97,9 @@ class Server(DatagramProtocol):
                 if node was already running update list of peers
                 """
                 
-                if data[1] == '':
-                    print("No peers in the network")
-                    return
-                
                 recvd_peers = data[1].split('::::')
+                
+                new_node = None
                 
                 for peer in recvd_peers:
                     print('Peer address : ', eval(peer)["address"])
@@ -117,34 +109,24 @@ class Server(DatagramProtocol):
                     peer_recvd = eval(peer)
                     
                     save_peer(database, peer_recvd)
+                    
                     new_node = Peer(peer_recvd["address"], peer_recvd["public_key"],
-                                    peer_recvd["name"]
-                                    )
-                    
-                    """
-                    add new node to list of currently registered nodes
-                    """
-                    
+                                    peer_recvd["name"])
+    
                     self.peers.add(new_node)
                     
-                    if self.new_join:
-                        """
-                        only register and request chain if new node
-                        """
-                        data_to_broadcast = ["register",
-                                             {"chain-length": f"{len(chain.chain)}",
-                                              "last-block": chain.get_last_block().header[
-                                                  "hash"]
-                                                  
-                                              }]
-                        
-                        signed_data = identity.sign_data(data_to_broadcast)
-                        self.transport.write(
-                            f"{signed_data}0000{data_to_broadcast}".encode("utf-8"),
-                            new_node.address
-                            )
+                if self.new_join:
+                    self.chains_to_validate[new_node.name] = 0
+                    """
+                    only register and request chain if new node
+                    """
+                    message = {"chain-length": f"{len(chain.chain)}",
+                               "last-block": chain.get_last_block().header["hash"]}
                 
-                print('\nPeers :\n{}'.format(self.peers))
+                    self.broadcast_message(message, 'register', 0)
+                    self.new_join = False
+            
+            print('\nPeers :{}'.format([f'\t{peer.name}' for peer in self.peers]))
             return
         
         """
@@ -154,8 +136,8 @@ class Server(DatagramProtocol):
         
         try:
             recvd_data = datagram.decode().split('0000')
-        except Exception as ex:
-            print('Failed to decode data : ', ex.__notes__)
+        except Exception as excpt:
+            print('Failed to decode data : ', excpt)
         try:
             """
             verify data before going forward
@@ -177,13 +159,14 @@ class Server(DatagramProtocol):
                 # find by bruteforcing the public keys and update the address
                 
                 print('Peer not found : brute force started')
+                
                 for peer in self.peers:
                     print(f"Looking at {peer.address} : {peer.name} ")
                     try:
-                        verified_data = verify_data(recvd_data[1].encode('utf-8'),
-                                                    eval(recvd_data[0]),
-                                                    rsa.PublicKey.load_pkcs1(peer.pk)
-                                                    )
+                        verified_data = verify_data(
+                            recvd_data[1].encode('utf-8'),
+                            eval(recvd_data[0]),
+                            rsa.PublicKey.load_pkcs1(peer.pk))
                     except rsa.VerificationError:
                         continue
                     
@@ -194,191 +177,160 @@ class Server(DatagramProtocol):
                         break
                 
                 if signing_peer is None:
-                    # peer not found throught brutefore
+                    # peer not found through brutefore
                     # inform node_list_server
                     return
             
             else:
                 print('Signing peer : ', signing_peer.address)
-                print('recieved data : ', recvd_data)
+                # print('recieved data : ', recvd_data)
                 
-                verified_data = verify_data(recvd_data[1].encode('utf-8'),
-                                            eval(recvd_data[0]),
-                                            rsa.PublicKey.load_pkcs1(signing_peer.pk)
-                                            )
+                verified_data = verify_data(
+                    recvd_data[1].encode('utf-8'),
+                    eval(recvd_data[0]),
+                    rsa.PublicKey.load_pkcs1(signing_peer.pk))
             
             if verified_data:
                 print(f"Data recvd from peer {eval(recvd_data[1])}")
+                # print(f"All recieved data : {recvd_data}")
                 
                 data_request = eval(recvd_data[1])  # recvd_data is list [str, dict]
                 # print(f"type of recvd data  : {type(data_request)}")
                 
                 if data_request[0] == 'register':
-                    """
-                    new node requesting chain
-                    send chain hashes only
-                    """
-                    
+
                     # dict with properties of the request
                     # {chain-length : x, last-block : y}
                     
                     new_node_chain_props = data_request[1]
                     
-                    # properties of my chain
-                    my_chain_props = {"chain-length": str(len(chain.chain)),
-                                      "last-block": chain.get_last_block().header["hash"]
-                                      }
+                    print(f"New node chain props : {new_node_chain_props}")
+
+                    response = new_node_regiser(
+                        new_node_chain_props, chain, self.transport, signing_peer)
                     
-                    if new_node_chain_props == my_chain_props:
-                        # chains are at the same level and are probably equal
-                        # send response notifying new node that chains at same level
-                        
-                        register_response = {"response": "chains-equal"}
-                        
-                        encrypted_response = ["register-response", encrypt_data(
-                            rsa.PublicKey.load_pkcs1(signing_peer.pk), register_response
-                            )]
-                        
-                        signed_encrypted_response = identity.sign_data(encrypted_response)
-                        
-                        return f"{signed_encrypted_response}0000{encrypted_response}".encode(
-                            'utf-8'
-                            )
+                    self.send_message(signing_peer, response, "register-response", 1)
                     
-                    if new_node_chain_props != my_chain_props:
-                        # check length of chain
-                        if (my_chain_props["chain-length"] >
-                                new_node_chain_props["chain-length"]):
-                            # my chain is higher that new node chain
-                            # send response notifying of my chain size and other blocks
-                            register_response = {"response": "-chain"}
-                            encrypted_response = ["register-response", encrypt_data(
-                                rsa.PublicKey.load_pkcs1(signing_peer.pk),
-                                register_response
-                                )]
-                            signed_encrypted_response = identity.sign_data(
-                                encrypted_response
-                                )
-                            self.transport.write(f"{signed_encrypted_response}0000{encrypted_response}"
-                                    .encode('utf-8'), signing_peer.address)
+                if data_request[0] == "close-block-request":
+                    
+                    if signing_peer.name == self.chain_leader:
+                        transactions = data_request[1]["transactions"]
+                        data_hash = data_request[1]["data_hash"]
+                        block_hash = data_request[1]["data_hash"]
+                        block_prev_hash = data_request[1]["prev_hash"]
                         
-                        elif (my_chain_props["chain-length"] <
-                              new_node_chain_props["chain-length"]):
-                            # my chain is smaller than new node chain
-                            # request other missing blocks
-                            register_response = {"response": "+chain"}
-                            encrypted_response = ["register-response", encrypt_data(
-                                rsa.PublicKey.load_pkcs1(signing_peer.pk),
-                                register_response
-                                )]
-                            signed_encrypted_response = (
-                                identity.sign_data(encrypted_response))
-                            
-                            self.transport.write(f"{signed_encrypted_response}0000"
-                                                 f"{encrypted_response}".encode('utf-8'),
-                                                 signing_peer.address)
-                            
-                            # TODO initiate chain downloading protocol
-                            
-                        elif (my_chain_props["chain-length"] ==
-                              new_node_chain_props["chain-length"]):
-                            
-                            # chain size is the same with unmatching block hashes
-                            # one / all the chains are incorrect
-                            # check validity of chains
-                            register_response = {"response": "^hash"}
-                            encrypted_response = ["register-response", encrypt_data(
-                                rsa.PublicKey.load_pkcs1(signing_peer.pk),
-                                register_response
-                                )]
-                            signed_encrypted_response = identity.sign_data(
-                                encrypted_response)
-                            self.transport.write(f"{signed_encrypted_response}0000"
-                                                 f"{encrypted_response}".encode('utf-8'),
-                                                 signing_peer.address)
+                        # respose { data_hash : '', block_hash : '' }
+                        response = process_close_block(transaction_queue, transactions)
                         
+                        if response["found"]:
+                            new_block = Block()
+                            for transaction in response["transactions"]:
+                                new_block.add_new_transaction(transaction)
+                            new_block.close_block()
+                            
+                            if (new_block.header["hash"] == data_hash and
+                                    new_block.header["hash"] == block_hash):
+                                database.save_block(new_block)
+                    return
+                
+                if data_request[1] == "close-block-response":
+                    return
+    
+                if data_request[0] == 'leader-request':
+                    print(f"Peer : {signing_peer.name} requesting for block_leader")
+                    
+                    self.send_message(signing_peer, str({"leader": self.chain_leader}),
+                                      "leader-response", 1)
+                    return
+                
+                if data_request[0] == 'leader-response':
+                    # leader-response, {leader: True}
+        
+                    pos_chain_leader = data_request[1]
+                    
+                    if pos_chain_leader["leader"]:
+                        self.chain_leader = signing_peer
+                    return
+                
                 if data_request[0] == 'register-response':
                     # decrypt the recvd data
                     # decrypted data {respone : x}
                     decrypted_response = eval(identity.derypt_data(data_request[1]))
                     
+                    print(f"Register response : {decrypted_response}")
                     if decrypted_response["response"] == "chains-equal":
                         print(f"Chain equal to {signing_peer.address}")
+                        self.chains_to_validate[signing_peer.name] = 0
+                        self.check_ready_to_download()
                         return
                     
                     elif decrypted_response["response"] == "-chain":
                         # my chain is smaller
                         print(f"my chainis smaller that : {signing_peer.name}")
-                        chian_validator = ChainValidator(self.peers, chain, database)
-                        chian_validator.get_all_chains_tp()
+                        self.chains_to_validate[signing_peer.name] = -1
+                        self.check_ready_to_download()
                         return
                     
                     elif decrypted_response["response"] == "+chain":
-                        # my chain is larger
+                        self.chains_to_validate[signing_peer.name] = 1
+                        self.check_ready_to_download()
                         return
                     
                     elif decrypted_response["response"] == "^hash":
                         # chain hashes are different but chains are equal
+                        
+                        self.chains_to_validate[signing_peer.name] = 2
+                        self.check_ready_to_download()
                         return
-                
-                if data_request[0] == 'get-chain-hashes':
-                    # get the block hashes from the chain
-                    print(f"{signing_peer.address} requesting chian hashs")
-                    response = process_peer_chain_request(chain)
-                    
-                    # creeate a response
-                    chain_hashes_response = {"chain": response}
-                    encrypted_response = ["chain-hashes", encrypt_data(rsa.PublicKey.load_pkcs1(
-                            signing_peer.pk), chain_hashes_response)]
-                    signed_encrypted_response = identity.sign_data(encrypted_response)
-                    self.transport.write(f"{signed_encrypted_response}0000{encrypted_response}"
-                                         .encode('utf-8'), signing_peer.address)
-                    
-                if data_request[0] == 'chain-hashes':
-                    # process chain hashes recieved from peer
-                    # must consider hashes from multiple peers
-                    chain_hash_data = identity.derypt_data(data_request[1])
-                    print(f"Hashes recieved from {signing_peer.name}")
-                    # print(chain_hash_data)
-                    
-                    # add hashes to chains to validate
-                    # handle chain copying and validation in separate thread
-                    chains_to_validate.append({
-                        signing_peer.name: eval(chain_hash_data)["chain"]
-                        })
-                    
-                    # download_peer_blocks(signing_peer.address[0], chain,
-                    # str(chain.get_last_block().header["hash"]), database)
-                    
-                    chian_validator = ChainValidator(self.peers,
-                                                     chain, database)
-                    chian_validator.get_all_chains_tp()
-                    return
             else:
                 print('Invalid data')
         
         except ValueError as excpt:
             data_invalid = True
-            print(f"Error : {excpt}")
-        
+            print(f"Value Error : {excpt}")
         # reactor.callInThread(self.doStop())
+        
+    def request_block_leader(self):
+        pass
+    
+    def check_ready_to_download(self):
+        if self.peers.__len__() / self.chains_to_validate.__len__() >= 0.5:
+            if -1 not in self.chains_to_validate.values():
+                print("No peer greater than mine")
+                self.chains_to_validate = {}
+                return
+            
+            chian_validator = ChainValidator(self.peers, chain, database)
+            if chian_validator.get_all_chains_tp():
+                self.chains_to_validate = {}
+                self.broadcast_message("chain-leader",
+                                       "leader-request", 1)
+        
+        print(f"Peers less than 0.5")
+                
+        return
     
     def send_response(self, message, peer_address):
         # encrypt and send response
         self.transport.write(message, peer_address)
         return
     
-    def broadcast_message(self, message, message_label):
+    def broadcast_message(self, message, message_label, e):
         # send a signed and encrypted message to all peers
         for peer in self.peers:
-            self.send_message(peer, message, message_label)
+            self.send_message(peer, message, message_label, e)
         return
     
-    def send_message(self, peer, message, message_label):
-        encypted_message = encrypt_data(peer.pk, message)
-        unsinged_message = {message_label: encypted_message}
+    def send_message(self, peer:  Peer, message, message_label, e):
+        message_to_send = [message_label, message]
+        
+        if e == 1:
+            message_to_send = encrypt_data(rsa.PublicKey.load_pkcs1(peer.pk), message)
+    
+        unsinged_message = [message_label, message_to_send]
         signed_message = identity.sign_data(unsinged_message)
-        self.transport.write(f"{signed_message}0000{unsinged_message}")
+        self.transport.write(f"{signed_message}0000{unsinged_message}".encode('utf-8'),
+                             peer.address)
         return
 
 
@@ -393,16 +345,6 @@ def add_transaction_to_block(transaction):
     return
     
 
-@method
-def reg_new_practitioner(details):
-    result = register_new_practitioner(database, details)
-    if result == 'acc_created':
-        tr = Transaction('account verification', details, metadata=None)
-        add_transaction_to_block(tr)
-        return Success({"Message": "account created successfully"})
-    return result
-
-
 def grpc_server():
     port = "50051"
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
@@ -416,25 +358,17 @@ def grpc_server():
 def block_time_monitor():
     # close block when not empty after a time limit and if you are the block leader
     # TODO block voting(concencus), allow for block leader, manipulate open_block_old
-    global block_leader, open_block_old
     start_time = time.time()
     
     while True:
         elapsed_time = time.time() - start_time
-        if (elapsed_time/60 > 1) and block_leader and open_block_old:
-            
-            open_block.close_block()
-            
-            block_leader = False
-            open_block_old = False
-        else:
-            time.sleep(3)
+        return
         
     
 def main():
     # all nodes must not use port 9009 -> its for node-list-server
-    port = randint(1000, 5000)
-    reactor.listenUDP(port, Server('192.168.43.252', port))
+    port = 5000
+    reactor.listenUDP(port, Server('0.0.0.0', port))
     reactor.run()
 
 

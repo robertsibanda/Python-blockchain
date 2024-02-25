@@ -3,8 +3,7 @@
 import hashlib
 from dataclasses import dataclass
 
-# TODO change transaction limit from count to time && count
-MAX_TRANSACTIONS = 2  # max number of transactions in a block
+MAX_TRANSACTIONS = 10  # max number of transactions in a block
 
 
 class Block:

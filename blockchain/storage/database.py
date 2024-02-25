@@ -1,6 +1,6 @@
 import sys
 from pymongo import MongoClient
-
+from pymongo.server_api import ServerApi
 from blockchain import blockchain
 from blockchain.block import Block
 from blockchain.security import create_hash_default
@@ -12,7 +12,9 @@ from blockchain.trasanction import Transaction
 class Database:
     
     def __init__(self, address, port, database):
-        self.client = MongoClient(address, port)
+        conn_string = 'mongodb+srv://n0175487y:claire6772147@cluster0.g7nxnqo.mongodb.net/'
+
+        self.client = MongoClient(conn_string, server_api=ServerApi("1"))
         self.database = self.client[database]
         try:
             self.database.create_collection("blocks")

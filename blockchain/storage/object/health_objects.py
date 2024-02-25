@@ -24,7 +24,7 @@ class Allegie(Record):
 class Prescription(Record):
     medicine: str
     quanity: int
-
+    
     def is_patient_allegic(self, patient):
         pass
     
@@ -46,6 +46,7 @@ class Medicine(HealthObject):
     chemicals: list
 
 
+@dataclass
 class LabResult(Record):
     category = "lab result"
     result: str
