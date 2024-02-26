@@ -10,6 +10,7 @@ RUN pip install -r requirements.txt
 RUN apt-get update
 RUN apt-get -y install nano micro
 RUN apt-get -y install git
+RUN apt-get -y install gh
 RUN apt-get -y install net-tools
 
 COPY . .
