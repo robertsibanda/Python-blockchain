@@ -61,7 +61,7 @@ class Server(DatagramProtocol):
         self.peers = set()
         self.id = '{}:{}'.format(host, port)
         self.address = (host, port)
-        self.server = '172.17.0.2', 9009
+        self.server = '172.17.0.5', 9009
         self.index_being_validated = 0
         self.new_join = True
         self.chain_leader = False
