@@ -1,6 +1,7 @@
 import sys
 import threading
 import time
+import socket
 from concurrent import futures
 from random import randint
 
@@ -25,7 +26,18 @@ from blockchain.trasanction import Transaction
 from clients.rpc import register_new_practitioner
 
 
-database = Database('172.17.0.3', 27017, 'ehr_chain')
+db_name = ''
+
+print(sys.argv)
+try:
+    db_name = sys.argv[1]
+except IndexError:
+    db_name = input("Enter database name : ")
+
+if db_name == '':
+    db_name = 'localhost'
+
+database = Database(socket.gethostbyname(db_name), 27017, 'ehr_chain')
 
 chain = Chain()
 
@@ -61,7 +73,8 @@ class Server(DatagramProtocol):
         self.peers = set()
         self.id = '{}:{}'.format(host, port)
         self.address = (host, port)
-        self.server = '172.17.0.5', 9009
+        # self.server = socket.gethostbyname('node-reg'), 9009
+        self.server = '10.42.0.1', 9009
         self.index_being_validated = 0
         self.new_join = True
         self.chain_leader = False
@@ -71,7 +84,7 @@ class Server(DatagramProtocol):
     
     def startProtocol(self):
         """initialize the connection"""
-        node_identity = {"status": "ready", "pk": identity.public_key, "name": "node-1"
+        node_identity = {"status": "ready", "pk": identity.public_key, "name": sys.argv[2]
                          }
         self.transport.write(str(node_identity).encode('utf-8'), self.server)
     
@@ -246,10 +259,13 @@ class Server(DatagramProtocol):
                 if data_request[0] == 'leader-response':
                     # leader-response, {leader: True}
         
-                    pos_chain_leader = data_request[1]
+                    pos_chain_leader = identity.derypt_data(data_request[1])
                     
-                    if pos_chain_leader["leader"]:
+                    print('chain leader response : ', pos_chain_leader)
+                    if eval(pos_chain_leader)["leader"]:
                         self.chain_leader = signing_peer
+
+                        print(f"Leader node : {self.chain_leader.name}")
                     return
                 
                 if data_request[0] == 'register-response':
@@ -297,15 +313,18 @@ class Server(DatagramProtocol):
         if self.peers.__len__() / self.chains_to_validate.__len__() >= 0.5:
             if -1 not in self.chains_to_validate.values():
                 print("No peer greater than mine")
+                self.broadcast_message("chain-leader",
+                                    "leader-request", 1)
                 self.chains_to_validate = {}
                 return
             
             chian_validator = ChainValidator(self.peers, chain, database)
-            if chian_validator.get_all_chains_tp():
-                self.chains_to_validate = {}
-                self.broadcast_message("chain-leader",
-                                       "leader-request", 1)
-        
+            chian_validator.get_all_chains_tp()
+            self.chains_to_validate = {}
+            self.broadcast_message("chain-leader",
+                                    "leader-request", 1)
+            return
+
         print(f"Peers less than 0.5")
                 
         return
@@ -368,7 +387,7 @@ def block_time_monitor():
 def main():
     # all nodes must not use port 9009 -> its for node-list-server
     port = 5000
-    reactor.listenUDP(port, Server('0.0.0.0', port))
+    reactor.listenUDP(port, Server('10.42.0.1', port))
     reactor.run()
 
 

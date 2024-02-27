@@ -15,5 +15,7 @@ RUN apt-get -y install net-tools
 
 COPY . .
 
+CMD ["bash"]
+
 
 

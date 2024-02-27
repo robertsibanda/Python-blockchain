@@ -21,10 +21,7 @@ class BlockDownloader(block_pb2_grpc.BlockDownloaderServicer):
         self.chain = chain
     
     def get_block_range(self, chain, block_id):
-        if block_id == 0 or "0":
-            block_0_range = self.chain.get_block(int(block_id))[0]
-        else:
-            block_0_range = self.chain.get_block(block_id)[0]
+        block_0_range = self.chain.get_block(block_id)[0]
         
         blocks_2send = self.chain.chain[self.chain.chain.index(block_0_range):]
         return blocks_2send
@@ -33,9 +30,11 @@ class BlockDownloader(block_pb2_grpc.BlockDownloaderServicer):
         print(f"Download request id : {request.hash}")
 
         blocks_2send = self.get_block_range(self.chain, request.hash)
+
+        print("Sending blocks")
         
         for block in blocks_2send:
-            print(block.header)
+            print('Sending Block : ' ,  block.header)
             yield Block(header=str(block.header),
                         transactions=str(block.transactions))
         print("done sending blocks")

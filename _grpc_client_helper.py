@@ -40,7 +40,7 @@ def download_peer_blocks(peer_address, chain, block_id, database=None):
             print(f"block block : {block}")
             
             # ignore the first block
-            if block_header["hash"] == 0 and len(chain.chain) == 1:
+            if block_header["hash"] == "0" and len(chain.chain) == 1:
                 continue
             
             expected_prev_block = block_header["prev_hash"]
@@ -55,12 +55,13 @@ def download_peer_blocks(peer_address, chain, block_id, database=None):
             # block prev hash must match expected prev hash
             if expected_prev_block != blk.header["prev_hash"]:
                 # wrong blocks
-                chain.delete_all_blocks()
+                # chain.delete_all_blocks()
                 print("Block hash mismatch while downloading!!")
                 print(f"Expected :  {expected_prev_block} : "
                       f"found : {blk.header['prev_hash']}"
                       )
-                sys.exit()
+                print(f"Ignoring block : {blk.header}")
+                continue
             
             blk.transactions = [x for x in block_transactions
                                 if isinstance(x, Transaction)]
@@ -77,12 +78,13 @@ def download_peer_blocks(peer_address, chain, block_id, database=None):
                 chain_validator.get_all_chains_tp()
 
                 print("Transaction integrity check failed while downloading!!")
-                sys.exit()
+                continue
+            if database.save_block(blk):
+                chain.add_new_block(blk)
+
             
-            database.save_block(blk)
-            chain.add_new_block(blk)
         
-    return True  # done downloading the blocks to my chain
+    return   # done downloading the blocks to my chain
 
 
 class ChainValidator:

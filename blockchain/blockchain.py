@@ -30,9 +30,9 @@ class Chain:
         return False
     
     def create_genesis_block(self) -> Block:
-        blok = Block(0, 0)
+        blok = Block("0", "0")
         blok.close_block()
-        blok.header["hash"] = 0
+        blok.header["hash"] = "0"
         return blok
     
     def create_block_data_hash(self, data):

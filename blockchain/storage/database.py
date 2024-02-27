@@ -1,6 +1,5 @@
 import sys
 from pymongo import MongoClient
-from pymongo.server_api import ServerApi
 from blockchain import blockchain
 from blockchain.block import Block
 from blockchain.security import create_hash_default
@@ -12,9 +11,7 @@ from blockchain.trasanction import Transaction
 class Database:
     
     def __init__(self, address, port, database):
-        conn_string = 'mongodb+srv://n0175487y:claire6772147@cluster0.g7nxnqo.mongodb.net/'
-
-        self.client = MongoClient(conn_string, server_api=ServerApi("1"))
+        self.client = MongoClient(host=address, port=port)
         self.database = self.client[database]
         try:
             self.database.create_collection("blocks")
@@ -45,6 +42,11 @@ class Database:
     
     def save_block(self, block: blockchain.Block):
         collection = self.database["blocks"]
+
+        if collection.find_one({'block_header' : block.header}):
+            print('Transaction already exists')
+            return False
+            
         transactions2save = []
         for transaction in block.transactions:
             transaction2save = {"type": transaction.type, "data": transaction.data,
@@ -54,8 +56,7 @@ class Database:
         inserted_doc = collection.insert_one(
             {"block_header": block.header, "transactions": transactions2save
              })
-        
-        return inserted_doc
+        return True
     
     def lookup_practitioner(self, orgnisation_id, practitioner_id):
         collection = self.database["practitioners"]
