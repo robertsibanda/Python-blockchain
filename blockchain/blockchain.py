@@ -82,6 +82,7 @@ class Chain:
                     [blck.header["prev_hash"], blck.header["data_hash"]]
                     ):
                 """check the validity of a block`s hash based on data contents"""
+                
                 print(f"comapring block headers \n{blck.header['hash']}")
                 tobehashed = [blck.header["data_hash"], blck.header["prev_hash"]]
                 print(self.create_block_data_hash(tobehashed))

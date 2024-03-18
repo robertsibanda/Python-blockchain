@@ -77,6 +77,7 @@ def new_patient(db: database.Database ,details):
     return Success("patient added")
 
 
+
 @authenticated
 @broadcast
 def add_record(details):

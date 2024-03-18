@@ -74,7 +74,7 @@ class Server(DatagramProtocol):
         self.id = '{}:{}'.format(host, port)
         self.address = (host, port)
         # self.server = socket.gethostbyname('node-reg'), 9009
-        self.server = '10.42.0.1', 9009
+        self.server = socket.gethostbyname('node-reg'), 9009
         self.index_being_validated = 0
         self.new_join = True
         self.chain_leader = False
@@ -254,6 +254,7 @@ class Server(DatagramProtocol):
                     
                     self.send_message(signing_peer, str({"leader": self.chain_leader}),
                                       "leader-response", 1)
+                    print("Response for bock leader sent")
                     return
                 
                 if data_request[0] == 'leader-response':
@@ -266,6 +267,9 @@ class Server(DatagramProtocol):
                         self.chain_leader = signing_peer
 
                         print(f"Leader node : {self.chain_leader.name}")
+                    
+                    else:
+                        print(f"{signing_peer.name} isn not a leader")
                     return
                 
                 if data_request[0] == 'register-response':

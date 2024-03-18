@@ -82,10 +82,8 @@ class Server(DatagramProtocol):
                 # create a list of other peers leaving the peer ot receive the datagram
                 peer_addresses = "::::".join(
                     [str(eval(peer)) for peer in all_peers if
-                     eval(peer)["address"] != peer_to_remove["address"]]
+                     eval(peer)["address"] != peer_to_remove["address"]] and check_alive_status(peer)
                     )
-                
-                # TODO check if peer is alive before sending
                 
                 # print(f"peers to be send {peer_addresses}")
                 
