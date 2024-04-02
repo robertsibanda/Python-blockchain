@@ -78,7 +78,7 @@ def register_new_practitioner(db: database.Database, details) -> Transaction:
     except KeyError as ex:
         return Success({"Error": f"Missing request data {ex}"})
 
-@authorised
+@authenticated
 def update_permissions(db: database.Database, details) -> Transaction:
 
     perms_data = details
@@ -88,21 +88,16 @@ def update_permissions(db: database.Database, details) -> Transaction:
     # -> give researchers permissions to use data in researches
 
     perms_data
-    [{
-        doctor : doctor_a,
-        permissions { 
-            view_records : True,
-            update_records: False
-        }
-    }, ...]
+        [...,doctor_x, doctor_y]
     """
-    transaction = Transaction(type="permisssion update", 
-        data={'permissions' : perms_data['permissions'], 'doctor' : perms_data['doctor'], 
+    transaction = Transaction(type="permission update", 
+        data={'doctor' : perms_data['doctor'], 
         'patient' : perms_data['patient'] }, 
-        metadata=str(datetime.datetime.today()))
-    save_transaction(transaction)
-    pass
+        metadata=str(datetime.datetime.today()), hash='')
+        
+    save_transaction(db, transaction)
 
+    return transaction
 
 @authorised
 def create_account(db: database.Database, details) -> Transaction:
@@ -148,6 +143,12 @@ def view_records(db: database.Database, details) -> Transaction:
 
 @authorised
 def insert_record(db: database.Database, details) -> Transaction:
+
+    print("Details : ", details)
+
+    if details['error']:
+        return details
+
     record_data = details['record']
     record_type = details['type']
     patient = details['patient']
@@ -157,5 +158,5 @@ def insert_record(db: database.Database, details) -> Transaction:
         metadata={ 'patient' : patient, 'doctor' : doctor, 
         'date': str(datetime.datetime.today().date())}, hash='')
 
-    if save_transaction(db, transaction):
-        return transaction
+    save_transaction(db, transaction)
+    return transaction

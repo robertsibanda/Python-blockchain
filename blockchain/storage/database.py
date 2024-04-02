@@ -1,5 +1,7 @@
 import sys
 from pymongo import MongoClient
+from bson.objectid import ObjectId
+
 from blockchain import blockchain
 from blockchain.block import Block
 from blockchain.trasanction import Transaction
@@ -39,22 +41,49 @@ class Database:
         return collection.insert_one({'public_key' : patient_data,
              'permissions' : [], 'records' : []})
 
+    def get_patient(self, id):
+        collection = self.database['patients']
+        return collection.find_one({ '_id' : ObjectId(id)})
+
     def save_doctor(self, doctor_data):
         collection = self.database['doctor']
         return collection.insert_one({ 'public_key' : doctor_data})
 
-    def update_permissions(self, pk, perm, doctor):
-        collection = self.database["patients"]
-        patient = collection.find_one({ 'public_key': pk})
+    def get_doctor(self, id):
+        collection = self.database['doctor']
+        return collection.find_one({ '_id' : ObjectId(id) })
 
-        # check if doctor already existed, case of update
-        # TODO permission architecture
-        doc_found = False
+    def update_permissions(self, id, doctor):
+        print("Adding doctor : " , doctor, " to -> ", id)
+        collection = self.database["patients"]
+
+        patient = collection.find_one({'_id' : ObjectId(id)})
+
+        if doctor in patient['permissions']:
+            return { "error" : "doctor already alloweed"}
+
+
+        new_lis = []
+
+        if patient['permissions'] == None:      
+            new_lis = [doctor]
+        
+        elif len(patient['permissions'])  == 0:
+            new_lis = [doctor]
+
+        else:
+            new_lis = patient['permissions']
+
+            new_lis.append(doctor)
+        
+        collection.find_one_and_update({'_id': ObjectId(id)}, 
+            { '$set' : {'permissions': new_lis}})
+
         return 
 
-    def update_records(self, patient, record_type, record_data):
+    def update_records(self, id, record_type, record_data):
         collection = self.database['patients']
-        patient = collection.find_one({ public_key: patient })
+        patient = collection.find_one({ '_id': ObjectId(id) })
 
         old_records = patient[record_type]
         collection.find_one_and_update({ public_key: patient}, 

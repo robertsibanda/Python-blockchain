@@ -25,7 +25,7 @@ from blockchain.security.Identity import Identity
 from blockchain.storage.database import Database
 from blockchain.storage.onchain import load_all_blocks
 from blockchain.trasanction import Transaction
-from clients.rpc import create_account, view_records, update_permissions, get_block_data
+from clients.rpc import create_account, view_records, update_permissions, get_block_data, insert_record
 
 
 db_name = ''
@@ -402,8 +402,13 @@ def signup(headers):
 
 @method
 def update_records(headers):
-    transaction = add_record(database, headers)
-    transaction_queue.append(transaction)
+    result = insert_record(database, headers)
+
+    if isinstance(result, Transaction):
+        transaction_queue.append(result)
+    else:
+        return Success(result)
+
     return Success({ "record added" : "done" })
 
 
@@ -417,8 +422,15 @@ def view_health_records(headers):
 
 
 @method
-def update_data_permissions(header):
-    return
+def update_data_permissions(headers):
+    result = update_permissions(database, headers)
+
+    if isinstance(result, Transaction):
+        transaction_queue.append(result)
+    else:
+        return Success(result)
+        
+    return Success({ "succes" : "permissions added" })
 
 @method
 def delete_account(headers):

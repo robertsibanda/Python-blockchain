@@ -22,14 +22,9 @@ def save_transaction(db, transaction: Transaction):
             record_type=data['type'], record_data=data['data'])
     
     if transaction.type == "permission update":
-
-        patient = db.find_patient(data['patient'])
-        
-        db.update_permissions(patient['public_key'], 
-            data['permissions', data['doctor']])
+        db.update_permissions(data['patient'], data['doctor'])
     
     if transaction.type == 'account init':
-
         if data['user_type'] == 'doctor':
             db.save_doctor(data['public_key'])
 
