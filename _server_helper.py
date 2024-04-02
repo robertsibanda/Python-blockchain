@@ -1,7 +1,7 @@
 import blockchain.blockchain
 from blockchain.blockchain import Chain
 from blockchain.peer import Peer
-
+import grpc
 
 def process_peer_chain_request(chain: blockchain.blockchain.Chain):
     return [block.header['hash'] for block in chain.chain]
@@ -9,6 +9,7 @@ def process_peer_chain_request(chain: blockchain.blockchain.Chain):
 
 def process_close_block(transaction_queue: list, transactions):
     
+    # check if you have all the data needed to create the block
     transaction_hashes = [tr.hash for tr in transaction_queue]
     found_hash = [tr in transaction_hashes for tr in transactions]
     
@@ -40,14 +41,29 @@ def new_node_regiser(new_node_props: dict, chain: Chain, peer: Peer,
 
     if new_node_props != my_chain_props:
         if my_chain_props["chain-length"] > new_node_props[1]["chain-length"]:
+            # my chains is greater than requester
             return {"response": "-chain"}
 
         if my_chain_props["chain-length"] < new_node_props[1]["chain-length"]:
+            # my chain smaller that requester
             # TODO work on copying chain
             return {"response": "+chain"}
         
         if my_chain_props["last-block"] != new_node_props[1]["last-block"]:
+            # chains are equal but hashes do not match
             return {"response": "^hash"}
     
 
+
+def grpc_server():
+    # the grpc server for downloading chain from other nodes
+    port = "50051"
+    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
+    block_pb2_grpc.add_BlockDownloaderServicer_to_server(BlockDownloader(chain), server)
+    server.add_insecure_port("[::]:" + port)
+    server.start()
+    print("Server started, listening on " + port)
+    server.wait_for_termination()
+
+    
     

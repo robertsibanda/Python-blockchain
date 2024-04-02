@@ -15,15 +15,17 @@ import block_pb2_grpc
 from _grpc_client_helper import ChainValidator
 from _grpc_server_helper import BlockDownloader
 from _server_helper import process_peer_chain_request, new_node_regiser, \
-    process_close_block
+    process_close_block, grpc_server
+
 from blockchain.block import Block
 from blockchain.blockchain import Chain
 from blockchain.peer import Peer, peer_exists, save_peer
 from blockchain.security import verify_data, encrypt_data
 from blockchain.security.Identity import Identity
 from blockchain.storage.database import Database
+from blockchain.storage.onchain import load_all_blocks
 from blockchain.trasanction import Transaction
-from clients.rpc import register_new_practitioner
+from clients.rpc import create_account, view_records, update_permissions, get_block_data
 
 
 db_name = ''
@@ -42,7 +44,7 @@ database = Database(socket.gethostbyname(db_name), 27017, 'ehr_chain')
 chain = Chain()
 
 # load blocks saved before shutdown
-database.load_all_blocks(chain)
+load_all_blocks(database, chain)
 
 # load peers connected to before shutdown
 database.load_peers()
@@ -86,6 +88,7 @@ class Server(DatagramProtocol):
         """initialize the connection"""
         node_identity = {"status": "ready", "pk": identity.public_key, "name": sys.argv[2]
                          }
+        # send message to node_list_server to get peers
         self.transport.write(str(node_identity).encode('utf-8'), self.server)
     
     def datagramReceived(self, datagram: bytes, addr):
@@ -115,16 +118,14 @@ class Server(DatagramProtocol):
                 new_node = None
                 
                 for peer in recvd_peers:
-                    print('Peer address : ', eval(peer)["address"])
-                    if peer_exists(self.peers, peer):
-                        continue
-                    
+
                     peer_recvd = eval(peer)
-                    
-                    save_peer(database, peer_recvd)
                     
                     new_node = Peer(peer_recvd["address"], peer_recvd["public_key"],
                                     peer_recvd["name"])
+
+                    if peer_exists(self.peers, new_node):
+                        continue
     
                     self.peers.add(new_node)
                     
@@ -150,7 +151,8 @@ class Server(DatagramProtocol):
         try:
             recvd_data = datagram.decode().split('0000')
         except Exception as excpt:
-            print('Failed to decode data : ', excpt)
+            print('Failed to decode data : ', excpt.__str__())
+
         try:
             """
             verify data before going forward
@@ -171,7 +173,7 @@ class Server(DatagramProtocol):
                 # problem caused by NAT
                 # find by bruteforcing the public keys and update the address
                 
-                print('Peer not found : brute force started')
+                print('Peer not found : brute force started ..........')
                 
                 for peer in self.peers:
                     print(f"Looking at {peer.address} : {peer.name} ")
@@ -241,9 +243,15 @@ class Server(DatagramProtocol):
                                 new_block.add_new_transaction(transaction)
                             new_block.close_block()
                             
+                            # add new block to chain
+                            chain.add_new_block(new_block)
+
                             if (new_block.header["hash"] == data_hash and
                                     new_block.header["hash"] == block_hash):
                                 database.save_block(new_block)
+                        else:
+                            # some transactions not found
+                            pass
                     return
                 
                 if data_request[1] == "close-block-response":
@@ -367,32 +375,58 @@ def add_transaction_to_block(transaction):
         open_block.add_new_transaction(transaction)
     return
     
-
-def grpc_server():
-    port = "50051"
-    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
-    block_pb2_grpc.add_BlockDownloaderServicer_to_server(BlockDownloader(chain), server)
-    server.add_insecure_port("[::]:" + port)
-    server.start()
-    print("Server started, listening on " + port)
-    server.wait_for_termination()
-
-
-def block_time_monitor():
-    # close block when not empty after a time limit and if you are the block leader
-    # TODO block voting(concencus), allow for block leader, manipulate open_block_old
-    start_time = time.time()
-    
-    while True:
-        elapsed_time = time.time() - start_time
-        return
-        
-    
 def main():
     # all nodes must not use port 9009 -> its for node-list-server
     port = 5000
-    reactor.listenUDP(port, Server('10.42.0.1', port))
+    reactor.listenUDP(port, Server('0.0.0.0', port))
     reactor.run()
+
+
+"""
+begining of rpc intermediary methods
+"""
+
+helper_func = Server.broadcast_message
+
+@method
+def signup(headers):
+    result = create_account(database, headers)
+    if isinstance(result, Transaction):
+        transaction_queue.append(result)
+    else:
+        return Success(result)
+    
+    print(transaction_queue)
+    return Success({ "account created " : "done"})
+
+
+@method
+def update_records(headers):
+    transaction = add_record(database, headers)
+    transaction_queue.append(transaction)
+    return Success({ "record added" : "done" })
+
+
+@method
+def view_health_records(headers):
+    transaction = view_records(database, headers)
+    # print("Transction created : " , transaction.hash, ' -> ', transaction.data )
+    transaction_queue.append(transaction)
+    print("Transaction Que : ", transaction_queue)
+    return Success({ "done" : "records"})
+
+
+@method
+def update_data_permissions(header):
+    return
+
+@method
+def delete_account(headers):
+    return
+
+"""
+end of rpc intermediary methods
+"""
 
 
 # this only runs if the module was *not* imported
@@ -402,8 +436,8 @@ if __name__ == '__main__':
         JSONRPC_THREAD.start()
         
         GRPC_THREAD = threading.Thread(target=grpc_server)
-        GRPC_THREAD.start()
-        main()
+        # GRPC_THREAD.start()
+        # main()
     except KeyboardInterrupt:
         sys.exit()
     except Exception as ex:

@@ -11,6 +11,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import block_pb2
 import block_pb2_grpc
 from blockchain.block import Block, HashBlock
+from blockchain.storage.onchain import save_transaction
 from blockchain.trasanction import HashTransaction, Transaction
 from blockchain.blockchain import HashChain, Chain
 from blockchain.peer import Peer
@@ -28,6 +29,10 @@ def download_peer_block(peer_address, block_id):
         response = stub.DownloadBlock(block_pb2.BlockRequest(id=block_id))
         print(f"Block from server : {response}")  # return block
 
+
+def upload_new_transaction(peer_address, transaction):
+    # TODO finish this function for broadcasting new transactions with grpc
+    pass
 
 def download_peer_blocks(peer_address, chain, block_id, database=None):
     with grpc.insecure_channel(f"{peer_address}:50051") as channel:
@@ -47,6 +52,9 @@ def download_peer_blocks(peer_address, chain, block_id, database=None):
             expected_data_hash = block_header["data_hash"]
             
             block_transactions = eval(block.transactions)
+
+            for transaction in block_transactions:
+                save_transaction(database, transaction)
             
             blk = Block()
             
@@ -144,7 +152,6 @@ class ChainValidator:
                 except Exception as ex:
                     print("TP GRPC Error : ", ex)
         
-        print("downloaded chains :")
         lg_chain = list(self.chains_to_validate.values())[0]
         lg_node = list(self.chains_to_validate.keys())[0]
         

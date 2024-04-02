@@ -2,7 +2,6 @@ import sys
 from pymongo import MongoClient
 from blockchain import blockchain
 from blockchain.block import Block
-from blockchain.security import create_hash_default
 from blockchain.trasanction import Transaction
 
 # TODO create method for indexing and looking up transaction details
@@ -27,6 +26,41 @@ class Database:
         collection = self.database["users"]
         return collection.find_one({"name": name})
     
+    def save_person(self, userdata):
+        collection = self.database["users"]
+        return collection.insert_one(userdata)
+
+    def find_user(self, key):
+        collection = self.database['users']
+        return collection.find_one({ 'public_key' : key})
+
+    def save_patient(self, patient_data):
+        collection = self.database["patients"]
+        return collection.insert_one({'public_key' : patient_data,
+             'permissions' : [], 'records' : []})
+
+    def save_doctor(self, doctor_data):
+        collection = self.database['doctor']
+        return collection.insert_one({ 'public_key' : doctor_data})
+
+    def update_permissions(self, pk, perm, doctor):
+        collection = self.database["patients"]
+        patient = collection.find_one({ 'public_key': pk})
+
+        # check if doctor already existed, case of update
+        # TODO permission architecture
+        doc_found = False
+        return 
+
+    def update_records(self, patient, record_type, record_data):
+        collection = self.database['patients']
+        patient = collection.find_one({ public_key: patient })
+
+        old_records = patient[record_type]
+        collection.find_one_and_update({ public_key: patient}, 
+            { record_type : old_records.append(record_data)})
+        return
+
     def peer_lookup(self, addr):
         collection = self.database["users"]
         return collection.find_one({"address": addr})
@@ -48,14 +82,16 @@ class Database:
             return False
             
         transactions2save = []
+
         for transaction in block.transactions:
             transaction2save = {"type": transaction.type, "data": transaction.data,
-                                "metadata": transaction.metadata, "hash": transaction.hash
-                                }
+                "metadata": transaction.metadata, "hash": transaction.hash}
+            
             transactions2save.append(transaction2save)
-        inserted_doc = collection.insert_one(
-            {"block_header": block.header, "transactions": transactions2save
-             })
+
+        inserted_doc = collection.insert_one({"block_header": block.header, 
+            "transactions": transactions2save})
+
         return True
     
     def lookup_practitioner(self, orgnisation_id, practitioner_id):
@@ -67,45 +103,10 @@ class Database:
         collection = self.database["practitioners"]
         collection.find_one_and_replace({"practitioner_id": p_id}, details)
     
-    def load_all_blocks(self, chain: blockchain.Chain):
-        # load previously saved block from the database
-        # verify and validate while loading
+    def get_all_blocks(self):
         collection = self.database["blocks"]
         
-        blocks = collection.find()
-        for block in blocks:
-            # verify block level data
-            # print("Block############################")
-            blk = Block()
-            blk.header = block['block_header']
-            blk.transactions = []
-            
-            transactions = block['transactions']
-            transaction_hashes = list()
-            for transaction in transactions:
-                # verify transaction level data
-                expected_tr_hash = transaction['hash']
-                tr = Transaction(transaction['type'], transaction['data'],
-                                 transaction['metadata'], transaction['hash']
-                                 )
-                
-                print(f"Comparing hashed {expected_tr_hash} and {create_hash_default(tr.data)}",
-                      tr.hash == create_hash_default(tr.data)
-                      )
-                if expected_tr_hash != create_hash_default(tr.data):
-                    # throw block invalid exception and delete block data and start again
-                    print("Blockchain Transactions Invalid")
-                    sys.exit()
-                
-                transaction_hashes.append(tr.hash)
-                blk.transactions.append(tr)
-            expected_block_tr_data_hash = block['block_header']['data_hash']
-            # print(f"comparing {expected_block_tr_data_hash} and
-            # {create_hash_default(transaction_hashes)} for {transaction_hashes}")
-            if expected_block_tr_data_hash != create_hash_default(transaction_hashes):
-                print("Block TransactionHashes mismatch")
-                sys.exit()
-            chain.chain.append(blk)
+        return collection.find({})
     
     def load_peers(self):
         pass

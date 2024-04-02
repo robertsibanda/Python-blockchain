@@ -48,14 +48,13 @@ class Chain:
         """
         new_block.header["prev_hash"] = self.chain[-1].header["hash"]
         new_block.header["hash"] = self.create_block_data_hash(
-            [new_block.header["prev_hash"], new_block.header["data_hash"]]
-            )
+            [new_block.header["prev_hash"], new_block.header["data_hash"]])
         
         self.chain.append(new_block)
         self.refresh_block()
     
     def get_last_block(self) -> Block:
-        """last block os the chain """
+        """last block of the chain """
         return self.chain[-1]
     
     def get_hashes(self):
@@ -75,18 +74,13 @@ class Chain:
                     != blck.header["prev_hash"]):
                 
                 """chech the link between adjuscent blocks"""
-                print("Failed between blocks")
                 return False
             
             if blck.header["hash"] != self.create_block_data_hash(
-                    [blck.header["prev_hash"], blck.header["data_hash"]]
-                    ):
+                    [blck.header["prev_hash"], blck.header["data_hash"]]):
                 """check the validity of a block`s hash based on data contents"""
                 
-                print(f"comapring block headers \n{blck.header['hash']}")
                 tobehashed = [blck.header["data_hash"], blck.header["prev_hash"]]
-                print(self.create_block_data_hash(tobehashed))
-                print("Failed in integrity")
                 return False
         return True
     

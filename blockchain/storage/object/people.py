@@ -12,11 +12,12 @@ class Person:
     id_no : str
     address: str
     contact_infor: str
+    public_key: str
 
 
 @dataclass
-class Patient(Person):
-    records: list
+class Patient:
+    public_key : str
 
 
 @dataclass
