@@ -16,9 +16,9 @@ def save_transaction(db, transaction: Transaction):
 
     if transaction.type == "record":
 
-        patient = db.find_patient(transaction.metadata['patient'])
+        patient = transaction.metadata['patient']
 
-        db.update_records(patient=patient,
+        db.update_records(id=patient,
             record_type=data['type'], record_data=data['data'])
     
     if transaction.type == "permission update":

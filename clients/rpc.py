@@ -134,7 +134,6 @@ def create_account(db: database.Database, details) -> Transaction:
 @authorised
 def view_records(db: database.Database, details) -> Transaction:
 
-    print("Details : ", details)
     # view records of a patient
     records_data = details
     transaction = Transaction(type="log", data=records_data, 
@@ -144,14 +143,16 @@ def view_records(db: database.Database, details) -> Transaction:
 @authorised
 def insert_record(db: database.Database, details) -> Transaction:
 
-    print("Details : ", details)
-
-    if details['error']:
-        return details
+    try:
+        if details['error']:
+            return details
+    except KeyError:
+        ingore=  True
 
     record_data = details['record']
     record_type = details['type']
     patient = details['patient']
+    doctor = details['doctor']
 
     transaction  = Transaction(type="record", 
         data={ 'type' : record_type, 'data' : record_data},

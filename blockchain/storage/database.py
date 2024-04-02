@@ -85,9 +85,25 @@ class Database:
         collection = self.database['patients']
         patient = collection.find_one({ '_id': ObjectId(id) })
 
-        old_records = patient[record_type]
-        collection.find_one_and_update({ public_key: patient}, 
-            { record_type : old_records.append(record_data)})
+        old_records = []
+
+        try:
+            old_records = patient[record_type]
+        except KeyError:
+            ingore = True
+
+        new_lis = []
+
+        if old_records == None or len(old_records)  == 0:      
+            new_lis = [record_data]
+
+        else:
+            new_lis = old_records
+            new_lis.append(record_data)
+
+        collection.find_one_and_update({ '_id': ObjectId(id)}, 
+            { '$set' : { record_type : new_lis}})
+
         return
 
     def peer_lookup(self, addr):

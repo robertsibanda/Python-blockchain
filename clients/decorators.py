@@ -37,12 +37,8 @@ def authorised(func: Callable):
 
             doc_found = False
 
-            for perm in permissioned_doctors:
-                if perm['doctor'] == doctor:
-                    doc_found = True
-            
-            
-
+            if doctor in permissioned_doctors:
+                doc_found = True
 
             if doc_found is False:
                 args = [args,{ "error" : "doctor not allowed"} ]
