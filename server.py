@@ -1,6 +1,7 @@
 import sys
 import threading
 import time
+import datetime
 import socket
 from concurrent import futures
 from random import randint
@@ -28,6 +29,33 @@ from blockchain.storage.onchain import load_all_blocks, save_transaction
 from blockchain.trasanction import Transaction
 from clients.rpc import create_account, view_records, update_permissions, get_block_data, insert_record
 
+"""
+*db_name* 
+: the name of the database to connected
+default is localhost : '127.0.0.1, 27017'
+
+chain: the blockchain containing blocks and transactions
+
+*load_all_blocks*
+: loads all previously saved blocks
+from the database onto the chain
+
+
+*identity* 
+: contains all the Node`s signing,
+encrypting, decrypting and verifying functions
+
+*transaction_queue*
+: contains all the transactions recieved but
+not yet written to the chain
+
+*network_leader*
+: closes the block
+
+*next_network_leader*
+: takes over after leader
+or if leader goes down for a significant amt of time
+"""
 
 db_name = ''
 
@@ -57,19 +85,14 @@ if chain.is_valid() is not True:
 # create an instance of the identity used to sign and encrypt data
 identity = Identity()
 
-# open block for adding new transactions
-open_block = Block()
-
-# old block not yet closed
-open_block_old = False
-
 # transaction queue of all transactions
 transaction_queue = []
 
-# valid and verified transactions
-validated_transaction_queue = []
+network_leader = None
 
+next_network_leader = ''
 
+last_block_time = None
 class Server(DatagramProtocol):
     def __init__(self, host, port):
         self.peers = set()
@@ -81,7 +104,7 @@ class Server(DatagramProtocol):
         try:
             self.server = socket.gethostbyname('node-reg'), 9009
         except:
-            self.server = '172.19.0.3', 9009
+            self.server = '172.19.0.2', 9009
 
         self.index_being_validated = 0
         self.new_join = True
@@ -92,8 +115,9 @@ class Server(DatagramProtocol):
     
     def startProtocol(self):
         """initialize the connection"""
-        node_identity = {"status": "ready", "pk": identity.public_key, "name": sys.argv[2]
-                         }
+        node_identity = {"status": "ready", 
+            "pk": identity.public_key, "name": sys.argv[2]}
+
         # send message to node_list_server to get peers
         self.transport.write(str(node_identity).encode('utf-8'), self.server)
     
@@ -110,6 +134,15 @@ class Server(DatagramProtocol):
                 
                 print("No peers in the network")
                 self.chain_leader = True
+
+                global network_leader
+                global next_network_leader
+                global last_block_time
+
+                network_leader = True
+                next_network_leader = True
+                last_block_time = datetime.datetime.today()
+
                 self.new_join = False
                 return
             
@@ -127,8 +160,8 @@ class Server(DatagramProtocol):
 
                     peer_recvd = eval(peer)
                     
-                    new_node = Peer(peer_recvd["address"], peer_recvd["public_key"],
-                                    peer_recvd["name"])
+                    new_node = Peer(peer_recvd["address"], 
+                        peer_recvd["public_key"],peer_recvd["name"])
 
                     if peer_exists(self.peers, new_node):
                         continue
@@ -141,7 +174,7 @@ class Server(DatagramProtocol):
                     only register and request chain if new node
                     """
                     message = {"chain-length": f"{len(chain.chain)}",
-                               "last-block": chain.get_last_block().header["hash"]}
+                        "last-block": chain.get_last_block().header["hash"]}
                 
                     self.broadcast_message(message, 'register', 0)
                     self.new_join = False
@@ -232,13 +265,16 @@ class Server(DatagramProtocol):
                     
                     self.send_message(signing_peer, response, "register-response", 1)
                 
-                if data_request[0] == "close-block-request":
+                if data_request[0] == "new block":
                     
                     if signing_peer.name == self.chain_leader:
+
+                        block_header = data_request[1]['header']
                         transactions = data_request[1]["transactions"]
-                        data_hash = data_request[1]["data_hash"]
-                        block_hash = data_request[1]["data_hash"]
-                        block_prev_hash = data_request[1]["prev_hash"]
+
+                        data_hash = block_header["data_hash"]
+                        block_hash = block_header["data_hash"]
+                        block_prev_hash = block_header["prev_hash"]
                         
                         # respose { data_hash : '', block_hash : '' }
                         response = process_close_block(transaction_queue, transactions)
@@ -257,10 +293,13 @@ class Server(DatagramProtocol):
                                 database.save_block(new_block)
                         else:
                             # some transactions not found
+                            # request missing transactions
+                            # and request latest savd block and save
                             pass
                     return
                 
-                if data_request[1] == "close-block-response":
+                if data_request[1] == "correct block":
+                    # save the block 
                     return
     
                 if data_request[0] == 'leader-request':
@@ -394,6 +433,77 @@ def broadcast_transction(transaction : Transaction) -> None:
     usnsigned_transaction_data = asdict(transaction)
     return server.broadcast_message(usnsigned_transaction_data, 'transaction', 0)
 
+
+def create_block(transactions) -> Block:
+    block = Block()
+    [block.add_new_transaction(tx) for tx in transactions]
+    block.close_block()
+    chain.add_new_block(block)
+    database.save_block(block)
+    return block
+
+def broadcast_new_block(new_block : Block):
+    """
+    notify other nodes about the new block
+    """
+
+    block_data  = {
+        'header' : new_block.header,
+        'transactions' : [tx.hash for tx in new_block.transactions]
+    }
+
+    return server.broadcast_message(block_data, 'new block', 0)
+
+def network_monitor():
+
+    """
+    monitor the network inorder
+    to create new blocks timely
+    """
+
+    while True:
+
+        global network_leader, next_network_leader
+        if network_leader is True:
+            """
+            only create new blocks when you are the network leader
+            """
+
+            if ((datetime.datetime.today() - last_block_time).seconds 
+                 < 5) or (len(transaction_queue) < 2):
+                """
+                blocks created at 20 seconds intervals and
+                when there are enough transactions to do so
+                """
+                # do not close the block
+                reason ='time or transaction_queue size'
+                print(reason)
+            else:
+                transactions = []
+
+                # only 20 tx per block
+                print("Transaction queue at begining : ", '\n'.join([tx.hash for tx in transaction_queue]))
+
+                if len(transaction_queue) > 20:
+                    transactions = transaction_queue[0:19]
+                else:
+                    transactions = transaction_queue.copy()
+
+                print("Transaction queue b4 removin : ",'\n'.join([tx.hash for tx in transaction_queue]))
+                for tx in transactions:
+                    transaction_queue.remove(tx)
+                print("Transaction queue after removin : ", '\n'.join([tx.hash for tx in transaction_queue]))
+
+                new_block  = create_block(transactions)
+                broadcast_new_block(new_block)
+
+                network_leader = False
+        else:
+            reason = 'wait for your chance'
+            print(reason)
+
+        time.sleep(1)
+
 """
 begining of jsonrpc intermediary methods
 """
@@ -402,7 +512,7 @@ begining of jsonrpc intermediary methods
 @method
 def signup(headers):
     print("Request recieved : ", headers)
-    
+
     result = create_account(database, headers)
 
     if isinstance(result, Transaction):
@@ -461,12 +571,17 @@ end of rpc intermediary methods
 # this only runs if the module was *not* imported
 if __name__ == '__main__':
     try:
-        JSONRPC_THREAD = threading.Thread(target=serve)
-        JSONRPC_THREAD.start()
+        jsonrpc_thread = threading.Thread(target=serve)
+        jsonrpc_thread.start()
         
-        GRPC_THREAD = threading.Thread(target=grpc_server, args=[chain])
-        GRPC_THREAD.start()
+        grpc_thread = threading.Thread(target=grpc_server, args=[chain])
+        grpc_thread.start()
+
+        network_monitor_thread = threading.Thread(target=network_monitor)
+        network_monitor_thread.start()
+
         twisted_server(server)
+
     except KeyboardInterrupt:
         sys.exit()
     except Exception as ex:

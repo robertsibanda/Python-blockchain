@@ -1,12 +1,17 @@
-import blockchain.blockchain
-from blockchain.blockchain import Chain
-from blockchain.peer import Peer
+
 import grpc
 from concurrent import futures
 from twisted.internet import reactor
+import datetime
+
 import block_pb2_grpc
 from _grpc_client_helper import ChainValidator
 from _grpc_server_helper import BlockDownloader
+
+import blockchain.blockchain
+from blockchain.blockchain import Chain
+from blockchain.peer import Peer
+from blockchain.block import Block
 
 def process_peer_chain_request(chain: blockchain.blockchain.Chain):
     return [block.header['hash'] for block in chain.chain]
@@ -77,4 +82,4 @@ def twisted_server(server):
     reactor.listenUDP(port, server)
     reactor.run()
 
-    
+

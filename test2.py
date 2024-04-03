@@ -1,13 +1,7 @@
-from dataclasses import dataclass
+people = [1,2,3,4,5,6,6]
 
-@dataclass
-class Transaction:
-    data: str
+p = [2,3]
 
 
-tr = Transaction('hello 2')
-tr1 = Transaction('hello 2')
-
-l = [tr1]
-
-print(tr in l)
+[people.remove(x) for x in p]
+print(people)

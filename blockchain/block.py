@@ -3,8 +3,6 @@
 import hashlib
 from dataclasses import dataclass
 
-MAX_TRANSACTIONS = 10  # max number of transactions in a block
-
 
 class Block:
     
@@ -12,18 +10,11 @@ class Block:
         if transactions is None:
             transactions = []
         self.transactions = transactions  # transactions
-        self.header = {'hash': _hash, 'prev_hash': prev_hash, 'data_hash': ''
-                       }
+        self.header = {'hash': _hash, 'prev_hash': prev_hash, 'data_hash': ''}
     
     def add_new_transaction(self, transaction) -> bool:
-        print(f"Adding new transaction in length of {len(self.transactions)}")
-        if len(self.transactions) == MAX_TRANSACTIONS:
-            self.close_block()
-            print("Added new block to chain")
-            return False
         self.transactions.append(transaction)
-        print("Added transaction :  ", transaction.hash)
-        return True
+        return
     
     def create_block_data_hash(self, data):
         hasher = hashlib.sha256()

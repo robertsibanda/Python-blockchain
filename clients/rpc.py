@@ -104,15 +104,15 @@ def create_account(db: database.Database, details) -> Transaction:
     # change jsobOject to dict
     userdata  = details
 
-    print("Creating accunt: ", details)
-
     user_type = None
+    
+    person_id = None
     
     # save new user only with public_key
     if 'public_key' in userdata.keys():
         if db.find_user(userdata['public_key']) == None:
-            db.save_person(userdata)
-            print("Saved user : ")
+            person = db.save_person(userdata)
+            person_id = person.inserted_id
         else:
             return { 'failed' : 'user already exists'}
 
@@ -125,10 +125,9 @@ def create_account(db: database.Database, details) -> Transaction:
         user_type = 'doctor'
 
     transction = Transaction(type="account init", 
-        data={'public_key' : userdata['public_key'], 'user_type':  user_type}, 
+        data={'public_key' : userdata['public_key'], 'userid' : person_id, 'user_type':  user_type}, 
         metadata=['created account', str(datetime.datetime.today().date())], 
         hash='')
-    print("Going to transaction")
     save_transaction(db, transction)
 
     return transction

@@ -22,8 +22,6 @@ def authorised(func: Callable):
             check if doctor is permitted by patient
             """
 
-            print("Args : ", args[1])
-
             doctor = args[1]['doctor']
 
             database = args[0]

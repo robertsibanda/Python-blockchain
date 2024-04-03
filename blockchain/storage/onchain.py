@@ -12,11 +12,8 @@ def save_transaction(db, transaction: Transaction):
     used for creating database objects for new nodes
     """
 
-
     data = transaction.data
 
-    print(f"saving Transction {data}")
-    
     if transaction.type == "record":
 
         patient = transaction.metadata['patient']
@@ -28,14 +25,14 @@ def save_transaction(db, transaction: Transaction):
         db.update_permissions(data['patient'], data['doctor'])
     
     if transaction.type == 'account init':
-        print("Transaction is signup")
 
         if data['user_type'] == 'doctor':
-            db.save_doctor(data['public_key'])
+            db.save_doctor({'public_key' : data['public_key'], 
+                'userid' : data['userid']})
 
         elif data['user_type'] == 'patient':
-            print("user is patient")
-            db.save_patient(data['public_key'])
+            db.save_patient({'public_key' : data['public_key'], 
+                'userid' : data['userid']})
 
 
 
@@ -61,7 +58,7 @@ def load_all_blocks(db, chain: Chain):
                 expected_tr_hash = transaction['hash']
 
                 tr = Transaction(transaction['type'], transaction['data'],
-                                 transaction['metadata'], transaction['hash'])
+                    transaction['metadata'], transaction['hash'])
                 
                 print(f"Comparing hashes {expected_tr_hash} and {create_hash_default(tr.data)}",
                       tr.hash == create_hash_default(tr.data))

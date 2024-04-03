@@ -137,8 +137,10 @@ class Database:
         transactions2save = []
 
         for transaction in block.transactions:
-            transaction2save = {"type": transaction.type, "data": transaction.data,
-                "metadata": transaction.metadata, "hash": transaction.hash}
+            
+            transaction2save = {"type": transaction.type, 
+                "data": transaction.data,"metadata": transaction.metadata, 
+                "hash": transaction.hash}
             
             transactions2save.append(transaction2save)
 
@@ -148,9 +150,10 @@ class Database:
         return True
     
     def lookup_practitioner(self, orgnisation_id, practitioner_id):
+
         collection = self.database["practitioners"]
-        return collection.find_one(
-            {'practitioner_id': practitioner_id, "organisation_id": orgnisation_id})
+        return collection.find_one({'practitioner_id': practitioner_id, 
+            "organisation_id": orgnisation_id})
     
     def save_practitioners(self, p_id, details):
         collection = self.database["practitioners"]
