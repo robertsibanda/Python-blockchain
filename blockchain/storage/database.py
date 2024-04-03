@@ -59,16 +59,22 @@ class Database:
 
         patient = collection.find_one({'_id' : ObjectId(id)})
 
-        if doctor in patient['permissions']:
-            return { "error" : "doctor already alloweed"}
-
-
         new_lis = []
 
-        if patient['permissions'] == None:      
-            new_lis = [doctor]
-        
-        elif len(patient['permissions'])  == 0:
+
+        try:
+            if doctor in patient['permissions']:
+                return { "error" : "doctor already alloweed"}
+        except TypeError:
+            error = 'no permissions found for patient'
+
+        try:
+            if patient['permissions'] == None:      
+                new_lis = [doctor]
+        except TypeError:
+            error = "no permissions found for patient"
+
+        if len(patient['permissions'])  == 0:
             new_lis = [doctor]
 
         else:
@@ -85,6 +91,8 @@ class Database:
         collection = self.database['patients']
         patient = collection.find_one({ '_id': ObjectId(id) })
 
+        if patient == None:
+            return { "failed " : "patient does not exist"}
         old_records = []
 
         try:

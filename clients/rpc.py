@@ -99,11 +99,12 @@ def update_permissions(db: database.Database, details) -> Transaction:
 
     return transaction
 
-@authorised
 def create_account(db: database.Database, details) -> Transaction:
     
     # change jsobOject to dict
     userdata  = details
+
+    print("Creating accunt: ", details)
 
     user_type = None
     
@@ -111,6 +112,7 @@ def create_account(db: database.Database, details) -> Transaction:
     if 'public_key' in userdata.keys():
         if db.find_user(userdata['public_key']) == None:
             db.save_person(userdata)
+            print("Saved user : ")
         else:
             return { 'failed' : 'user already exists'}
 
@@ -126,7 +128,7 @@ def create_account(db: database.Database, details) -> Transaction:
         data={'public_key' : userdata['public_key'], 'user_type':  user_type}, 
         metadata=['created account', str(datetime.datetime.today().date())], 
         hash='')
-
+    print("Going to transaction")
     save_transaction(db, transction)
 
     return transction

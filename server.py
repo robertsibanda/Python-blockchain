@@ -4,6 +4,7 @@ import time
 import socket
 from concurrent import futures
 from random import randint
+from dataclasses import asdict, astuple
 
 import grpc
 import rsa
@@ -15,7 +16,7 @@ import block_pb2_grpc
 from _grpc_client_helper import ChainValidator
 from _grpc_server_helper import BlockDownloader
 from _server_helper import process_peer_chain_request, new_node_regiser, \
-    process_close_block, grpc_server
+    process_close_block, grpc_server, twisted_server
 
 from blockchain.block import Block
 from blockchain.blockchain import Chain
@@ -23,14 +24,13 @@ from blockchain.peer import Peer, peer_exists, save_peer
 from blockchain.security import verify_data, encrypt_data
 from blockchain.security.Identity import Identity
 from blockchain.storage.database import Database
-from blockchain.storage.onchain import load_all_blocks
+from blockchain.storage.onchain import load_all_blocks, save_transaction
 from blockchain.trasanction import Transaction
 from clients.rpc import create_account, view_records, update_permissions, get_block_data, insert_record
 
 
 db_name = ''
 
-print(sys.argv)
 try:
     db_name = sys.argv[1]
 except IndexError:
@@ -76,7 +76,13 @@ class Server(DatagramProtocol):
         self.id = '{}:{}'.format(host, port)
         self.address = (host, port)
         # self.server = socket.gethostbyname('node-reg'), 9009
-        self.server = socket.gethostbyname('node-reg'), 9009
+        self.server = None
+
+        try:
+            self.server = socket.gethostbyname('node-reg'), 9009
+        except:
+            self.server = '172.19.0.3', 9009
+
         self.index_being_validated = 0
         self.new_join = True
         self.chain_leader = False
@@ -225,7 +231,7 @@ class Server(DatagramProtocol):
                         new_node_chain_props, chain, self.transport, signing_peer)
                     
                     self.send_message(signing_peer, response, "register-response", 1)
-                    
+                
                 if data_request[0] == "close-block-request":
                     
                     if signing_peer.name == self.chain_leader:
@@ -265,6 +271,20 @@ class Server(DatagramProtocol):
                     print("Response for bock leader sent")
                     return
                 
+                if data_request[0] == 'transaction':
+
+                    transaction_data = data_request[1][1]
+
+                    print(f"New transaction from peer : {transaction_data}")
+
+                    transaction = Transaction('','','','')
+                    transaction._from_dict(transaction_data)
+                    # works because its a dataclass
+                    if transaction in transaction_queue:
+                        ignore = True
+                    else:
+                        save_transaction(database, transaction)
+
                 if data_request[0] == 'leader-response':
                     # leader-response, {leader: True}
         
@@ -285,16 +305,13 @@ class Server(DatagramProtocol):
                     # decrypted data {respone : x}
                     decrypted_response = eval(identity.derypt_data(data_request[1]))
                     
-                    print(f"Register response : {decrypted_response}")
                     if decrypted_response["response"] == "chains-equal":
-                        print(f"Chain equal to {signing_peer.address}")
                         self.chains_to_validate[signing_peer.name] = 0
                         self.check_ready_to_download()
                         return
                     
                     elif decrypted_response["response"] == "-chain":
                         # my chain is smaller
-                        print(f"my chainis smaller that : {signing_peer.name}")
                         self.chains_to_validate[signing_peer.name] = -1
                         self.check_ready_to_download()
                         return
@@ -350,7 +367,7 @@ class Server(DatagramProtocol):
         # send a signed and encrypted message to all peers
         for peer in self.peers:
             self.send_message(peer, message, message_label, e)
-        return
+        return True
     
     def send_message(self, peer:  Peer, message, message_label, e):
         message_to_send = [message_label, message]
@@ -365,39 +382,36 @@ class Server(DatagramProtocol):
         return
 
 
-def add_transaction_to_block(transaction):
-    global open_block
-    added = open_block.add_new_transaction(transaction)
-    if added is False:
-        chain.add_new_block(open_block)
-        database.save_block(open_block)
-        open_block = Block()
-        open_block.add_new_transaction(transaction)
-    return
-    
-def main():
-    # all nodes must not use port 9009 -> its for node-list-server
-    port = 5000
-    reactor.listenUDP(port, Server('0.0.0.0', port))
-    reactor.run()
+port = 5000
+server = Server('0.0.0.0', port)
 
 
 """
-begining of rpc intermediary methods
+begining of other functions
 """
 
-helper_func = Server.broadcast_message
+def broadcast_transction(transaction : Transaction) -> None:
+    usnsigned_transaction_data = asdict(transaction)
+    return server.broadcast_message(usnsigned_transaction_data, 'transaction', 0)
+
+"""
+begining of jsonrpc intermediary methods
+"""
+
 
 @method
 def signup(headers):
+    print("Request recieved : ", headers)
+    
     result = create_account(database, headers)
+
     if isinstance(result, Transaction):
         transaction_queue.append(result)
+        if broadcast_transction(result):
+            return Success({ "account created " : "done"})
     else:
         return Success(result)
-    
     print(transaction_queue)
-    return Success({ "account created " : "done"})
 
 
 @method
@@ -406,6 +420,7 @@ def update_records(headers):
 
     if isinstance(result, Transaction):
         transaction_queue.append(result)
+        broadcast_transction(result)
     else:
         return Success(result)
 
@@ -427,10 +442,11 @@ def update_data_permissions(headers):
 
     if isinstance(result, Transaction):
         transaction_queue.append(result)
+        broadcast_transction(result)
     else:
         return Success(result)
         
-    return Success({ "succes" : "permissions added" })
+    return Success({ "succes" : "permission added" })
 
 @method
 def delete_account(headers):
@@ -441,15 +457,16 @@ end of rpc intermediary methods
 """
 
 
+
 # this only runs if the module was *not* imported
 if __name__ == '__main__':
     try:
         JSONRPC_THREAD = threading.Thread(target=serve)
         JSONRPC_THREAD.start()
         
-        GRPC_THREAD = threading.Thread(target=grpc_server)
-        # GRPC_THREAD.start()
-        # main()
+        GRPC_THREAD = threading.Thread(target=grpc_server, args=[chain])
+        GRPC_THREAD.start()
+        twisted_server(server)
     except KeyboardInterrupt:
         sys.exit()
     except Exception as ex:

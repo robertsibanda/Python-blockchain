@@ -2,6 +2,11 @@ import blockchain.blockchain
 from blockchain.blockchain import Chain
 from blockchain.peer import Peer
 import grpc
+from concurrent import futures
+from twisted.internet import reactor
+import block_pb2_grpc
+from _grpc_client_helper import ChainValidator
+from _grpc_server_helper import BlockDownloader
 
 def process_peer_chain_request(chain: blockchain.blockchain.Chain):
     return [block.header['hash'] for block in chain.chain]
@@ -55,7 +60,7 @@ def new_node_regiser(new_node_props: dict, chain: Chain, peer: Peer,
     
 
 
-def grpc_server():
+def grpc_server(chain):
     # the grpc server for downloading chain from other nodes
     port = "50051"
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
@@ -65,5 +70,11 @@ def grpc_server():
     print("Server started, listening on " + port)
     server.wait_for_termination()
 
-    
+
+def twisted_server(server):
+    # all nodes must not use port 9009 -> its for node-list-server
+    port = 5000
+    reactor.listenUDP(port, server)
+    reactor.run()
+
     

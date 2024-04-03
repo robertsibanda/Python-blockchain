@@ -12,6 +12,12 @@ class Transaction:
     def __post_init__(self):
         self.hash = create_hash_default(self.data)
     
+    def _from_dict(self, data : dict):
+        self.type = data['type']
+        self.data = data['data']
+        self.metadata = data['metadata']
+        self.hash = self.__post_init__()
+
     def verified(self):
         return  # verify_data(self.data, self.metadata['signature'], self.metadata['pk'])
     
