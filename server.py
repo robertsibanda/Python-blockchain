@@ -269,7 +269,6 @@ class Server(DatagramProtocol):
 
                     if signing_peer.name == network_leader:
                         
-                        print("Data fro closing block : \n", data_request[1][1])
                         block_header = data_request[1][1]['header']
                         transactions = data_request[1][1]["transactions"]
 
@@ -293,9 +292,7 @@ class Server(DatagramProtocol):
                             
                             # add new block to chain
                             chain.add_new_block(new_block)
-                            print(f"Block header 1: {block_header}")
                             print(f"Block header 2: {new_block.header}")
-
 
                             if (new_block.header["data_hash"] == data_hash and
                                     new_block.header["hash"] == block_hash):
@@ -328,15 +325,12 @@ class Server(DatagramProtocol):
                 if data_request[0] == 'leader-request':
                     print(f"Peer : {signing_peer.name} requesting for block_leader")
                     
-                    print(f"next network leader : {next_network_leader}")
-                    print(f"self.peers {self.peers} :: {len(self.peers)}")
-
                     if not next_network_leader and len(self.peers) == 1:
                         next_network_leader = signing_peer.name
                         print(f"Changed next leader to : {signing_peer.name}")
 
                     self.send_message(signing_peer, str({"leader": network_leader, 
-                    'next_leader' : next_network_leader}), "leader-response", 1)
+                        'next_leader' : next_network_leader}), "leader-response", 1)
 
                     return
                 
@@ -344,30 +338,19 @@ class Server(DatagramProtocol):
 
                     transaction_data = data_request[1][1]
 
-                    print(f"New transaction from peer : {transaction_data}")
-
                     transaction = Transaction('','','','')
                     transaction._from_dict(transaction_data)
 
-                    print(f"New transaction {transaction}")
-
-                    print(f"transaction q b4 : {transaction_queue}")
                     # works because its a 
                     save_transaction(database, transaction)
                     transaction_queue.append(transaction)
                     
-                    print(f"Adding tx : {transaction.hash}")
-                           
-
-                    print(f"transaction q after : {transaction_queue}")
 
                 if data_request[0] == 'leader-response':
                     # leader-response, {leader: True}
         
                     pos_chain_leader = identity.derypt_data(data_request[1])
                     
-                    print('chain leader response : ', pos_chain_leader)
-
                     chain_leader_data = eval(identity.derypt_data(data_request[1]))
 
                     if chain_leader_data["leader"] is True:
@@ -424,16 +407,14 @@ class Server(DatagramProtocol):
         if self.peers.__len__() / self.chains_to_validate.__len__() >= 0.5:
             if -1 not in self.chains_to_validate.values():
                 print("No peer greater than mine")
-                self.broadcast_message("chain-leader",
-                                    "leader-request", 1)
+                self.broadcast_message("chain-leader","leader-request", 1)
                 self.chains_to_validate = {}
                 return
             
             chian_validator = ChainValidator(self.peers, chain, database)
             chian_validator.get_all_chains_tp()
             self.chains_to_validate = {}
-            self.broadcast_message("chain-leader",
-                                    "leader-request", 1)
+            self.broadcast_message("chain-leader","leader-request", 1)
             return
 
         print(f"Peers less than 0.5")
@@ -459,8 +440,8 @@ class Server(DatagramProtocol):
     
         unsinged_message = [message_label, message_to_send]
         signed_message = identity.sign_data(unsinged_message)
-        self.transport.write(f"{signed_message}0000{unsinged_message}".encode('utf-8'),
-                             peer.address)
+        self.transport.write(f"{signed_message}0000{unsinged_message}"
+            .encode('utf-8'),peer.address)
         return
 
 
@@ -532,17 +513,13 @@ def network_monitor():
                 transactions = []
 
                 # only 20 tx per block
-                print("Transaction queue at begining : ", '\n'.join([tx.hash for tx in transaction_queue]))
-
                 if len(transaction_queue) > 20:
                     transactions = transaction_queue[0:19]
                 else:
                     transactions = transaction_queue.copy()
 
-                print("Transaction queue b4 removin : ",'\n'.join([tx.hash for tx in transaction_queue]))
                 for tx in transactions:
                     transaction_queue.remove(tx)
-                print("Transaction queue after removin : ", '\n'.join([tx.hash for tx in transaction_queue]))
 
                 new_block  = create_block(transactions)
                 broadcast_new_block(new_block)

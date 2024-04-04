@@ -22,10 +22,8 @@ def process_close_block(transaction_queue, transactions):
     block_tx = []
 
     for tx in transactions:
-        print(f"Transaction from leader: {tx}")
         for t in transaction_queue:
             if t.hash == tx:
-                print("Transaction found")
                 block_tx.append(t)
 
     for tx in transaction_queue:
@@ -33,7 +31,8 @@ def process_close_block(transaction_queue, transactions):
 
     tx_toadd = [tx for tx in transaction_queue if tx.hash in transactions]
 
-
+    print(f"tx_toadd : {tx_toadd}")
+    
     for tx in tx_toadd:
         for t in transaction_queue:
             if tx is t:
