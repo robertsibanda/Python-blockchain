@@ -16,7 +16,6 @@ from blockchain.trasanction import HashTransaction, Transaction
 from blockchain.blockchain import HashChain, Chain
 from blockchain.peer import Peer
 
-# TODO make all commuications singed and encrypted
 
 node_peers = None
 database = None
@@ -28,11 +27,6 @@ def download_peer_block(peer_address, block_id):
         stub = block_pb2_grpc.BlockDownloaderStub(channel)
         response = stub.DownloadBlock(block_pb2.BlockRequest(id=block_id))
         print(f"Block from server : {response}")  # return block
-
-
-def upload_new_transaction(peer_address, transaction):
-    # TODO finish this function for broadcasting new transactions with grpc
-    pass
 
 def download_peer_blocks(peer_address, chain, block_id, database=None):
     with grpc.insecure_channel(f"{peer_address}:50051") as channel:

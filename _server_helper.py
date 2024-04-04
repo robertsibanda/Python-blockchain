@@ -17,26 +17,35 @@ def process_peer_chain_request(chain: blockchain.blockchain.Chain):
     return [block.header['hash'] for block in chain.chain]
 
 
-def process_close_block(transaction_queue: list, transactions):
+def process_close_block(transaction_queue, transactions):
     
-    # check if you have all the data needed to create the block
-    transaction_hashes = [tr.hash for tr in transaction_queue]
-    found_hash = [tr in transaction_hashes for tr in transactions]
+    block_tx = []
+
+    for tx in transactions:
+        print(f"Transaction from leader: {tx}")
+        for t in transaction_queue:
+            if t.hash == tx:
+                print("Transaction found")
+                block_tx.append(t)
+
+    for tx in transaction_queue:
+        print(f"Transaction from queue: {tx.hash}")
+
+    tx_toadd = [tx for tx in transaction_queue if tx.hash in transactions]
+
+
+    for tx in tx_toadd:
+        for t in transaction_queue:
+            if tx is t:
+                transaction_queue.remove(t)
     
-    new_block_transactions = []
+    print(f"Transaction Queue after adding {[tx.hash for tx in transaction_queue]}")
+
+    if len(tx_toadd) == len(transactions):
+        return {"transactions": tx_toadd, "found": True}
     
-    if found_hash.count(False) > 0:
-        # some transactions not found
-        # request from other nodes
-        return {"found": False}
-    
-    for tr in transaction_queue:
-        for tr2 in transaction_hashes:
-            if tr == tr2:
-                new_block_transactions.append(tr)
-                transaction_queue.remove(tr)
-                
-    return {"transactions": new_block_transactions, "found": True}
+    else:
+        return { "found" : False}
 
 
 def new_node_regiser(new_node_props: dict, chain: Chain, peer: Peer,

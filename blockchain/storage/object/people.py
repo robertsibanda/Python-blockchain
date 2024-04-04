@@ -7,7 +7,7 @@ from blockchain.security import verify_data
 class Person:
     firstname: str
     lastname: str
-    dob: str  # TODO runtime conversion to datime
+    dob: str 
     gender: str
     id_no : str
     address: str

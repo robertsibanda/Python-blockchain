@@ -1,6 +1,5 @@
 syntax = "proto3";
 
-// TODO create rpc calls for sharing new transactions for validation and verification
 package PyHealthChain;
 
 service BlockDownloader {

@@ -11,7 +11,7 @@ leader_node = None
 def check_node_acceptability(node):
     # check if node does not already exist on the network with different address
     # check if the node is authentic
-    # TODO remove duplicates, make sure peer is already registered
+    # TODO remove duplicates, make sure peer is already registered 
     return True
 
 
@@ -29,7 +29,6 @@ class Node:
         self.pk = pk
 
 
-# TODO work on block_leader
 class Server(DatagramProtocol):
     
     def __init__(self):
@@ -81,17 +80,17 @@ class Server(DatagramProtocol):
                 
                 # create a list of other peers leaving the peer ot receive the datagram
                 peer_addresses = "::::".join(
-                    [str(eval(peer)) for peer in all_peers if
-                     eval(peer)["address"] != peer_to_remove["address"]] and check_alive_status(peer)
-                    )
+                    [str(eval(peer)) for peer in all_peers 
+                    if eval(peer)["address"] != peer_to_remove["address"]] 
+                    and check_alive_status(peer))
                 
                 # print(f"peers to be send {peer_addresses}")
                 
                 # print(f"Peer to recieve datagram {eval(peer)['address']}")
                 # send the remaining peers to the node
                 self.transport.write(f'peers->{peer_addresses}'.encode('utf-8'),
-                                     (eval(peer)["address"])
-                                     )
+                    (eval(peer)["address"]))
+
         except KeyError as ex:
             # data from mobile client is list
             

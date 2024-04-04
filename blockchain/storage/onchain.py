@@ -33,6 +33,7 @@ def save_transaction(db, transaction: Transaction):
         elif data['user_type'] == 'patient':
             db.save_patient({'public_key' : data['public_key'], 
                 'userid' : data['userid']})
+    return
 
 
 
@@ -80,4 +81,4 @@ def load_all_blocks(db, chain: Chain):
                 print("Block TransactionHashes mismatch")
                 sys.exit()
 
-            chain.chain.append(blk)
+            chain.add_new_block(blk)

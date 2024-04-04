@@ -90,7 +90,7 @@ transaction_queue = []
 
 network_leader = None
 
-next_network_leader = ''
+next_network_leader = None
 
 last_block_time = None
 class Server(DatagramProtocol):
@@ -104,25 +104,29 @@ class Server(DatagramProtocol):
         try:
             self.server = socket.gethostbyname('node-reg'), 9009
         except:
-            self.server = '172.19.0.2', 9009
+            self.server = '172.19.0.5', 9009
 
         self.index_being_validated = 0
         self.new_join = True
         self.chain_leader = False
         self.chain_leader_n = None
         self.chains_to_validate = {}
+        self.my_name = sys.argv[2]
+
         print('working on id : ', self.id)
     
     def startProtocol(self):
         """initialize the connection"""
         node_identity = {"status": "ready", 
-            "pk": identity.public_key, "name": sys.argv[2]}
+            "pk": identity.public_key, "name": self.my_name}
 
         # send message to node_list_server to get peers
         self.transport.write(str(node_identity).encode('utf-8'), self.server)
     
     def datagramReceived(self, datagram: bytes, addr):
         
+        global network_leader, next_network_leader, transaction_queue, last_block_time
+
         if addr[1] == self.server[1]:
             '''
             handle comms comming from node with register of
@@ -133,14 +137,8 @@ class Server(DatagramProtocol):
             if data[1] == '':
                 
                 print("No peers in the network")
-                self.chain_leader = True
-
-                global network_leader
-                global next_network_leader
-                global last_block_time
 
                 network_leader = True
-                next_network_leader = True
                 last_block_time = datetime.datetime.today()
 
                 self.new_join = False
@@ -267,18 +265,26 @@ class Server(DatagramProtocol):
                 
                 if data_request[0] == "new block":
                     
-                    if signing_peer.name == self.chain_leader:
+                    print(f"data request : {data_request[1]}")
 
-                        block_header = data_request[1]['header']
-                        transactions = data_request[1]["transactions"]
+                    if signing_peer.name == network_leader:
+                        
+                        print("Data fro closing block : \n", data_request[1][1])
+                        block_header = data_request[1][1]['header']
+                        transactions = data_request[1][1]["transactions"]
+
+                        pos_network_leader = data_request[1][1]['network_leader']
+
+                        print(f"Block header 1: {block_header}")
 
                         data_hash = block_header["data_hash"]
-                        block_hash = block_header["data_hash"]
+                        block_hash = block_header["hash"]
                         block_prev_hash = block_header["prev_hash"]
                         
                         # respose { data_hash : '', block_hash : '' }
-                        response = process_close_block(transaction_queue, transactions)
+                        response = process_close_block(transaction_queue, list(transactions))
                         
+
                         if response["found"]:
                             new_block = Block()
                             for transaction in response["transactions"]:
@@ -287,10 +293,27 @@ class Server(DatagramProtocol):
                             
                             # add new block to chain
                             chain.add_new_block(new_block)
+                            print(f"Block header 1: {block_header}")
+                            print(f"Block header 2: {new_block.header}")
 
-                            if (new_block.header["hash"] == data_hash and
+
+                            if (new_block.header["data_hash"] == data_hash and
                                     new_block.header["hash"] == block_hash):
+                                
+                                last_block_time = datetime.datetime.today()
+
                                 database.save_block(new_block)
+                                print(f"Bloc saved to database {new_block.header}")
+                            
+                                if pos_network_leader == self.my_name:
+                                    print(f"Network leader updated to me : {network_leader}")
+                                    network_leader = True
+                                    next_network_leader = list(self.peers)[randint(0, len(self.peers)-1)]
+                                    next_network_leader = next_network_leader.name
+                                else:
+                                    print(f"I`m not network leader : {network_leader}")
+                            else:
+                                print("Block did not match")
                         else:
                             # some transactions not found
                             # request missing transactions
@@ -305,9 +328,16 @@ class Server(DatagramProtocol):
                 if data_request[0] == 'leader-request':
                     print(f"Peer : {signing_peer.name} requesting for block_leader")
                     
-                    self.send_message(signing_peer, str({"leader": self.chain_leader}),
-                                      "leader-response", 1)
-                    print("Response for bock leader sent")
+                    print(f"next network leader : {next_network_leader}")
+                    print(f"self.peers {self.peers} :: {len(self.peers)}")
+
+                    if not next_network_leader and len(self.peers) == 1:
+                        next_network_leader = signing_peer.name
+                        print(f"Changed next leader to : {signing_peer.name}")
+
+                    self.send_message(signing_peer, str({"leader": network_leader, 
+                    'next_leader' : next_network_leader}), "leader-response", 1)
+
                     return
                 
                 if data_request[0] == 'transaction':
@@ -318,11 +348,18 @@ class Server(DatagramProtocol):
 
                     transaction = Transaction('','','','')
                     transaction._from_dict(transaction_data)
-                    # works because its a dataclass
-                    if transaction in transaction_queue:
-                        ignore = True
-                    else:
-                        save_transaction(database, transaction)
+
+                    print(f"New transaction {transaction}")
+
+                    print(f"transaction q b4 : {transaction_queue}")
+                    # works because its a 
+                    save_transaction(database, transaction)
+                    transaction_queue.append(transaction)
+                    
+                    print(f"Adding tx : {transaction.hash}")
+                           
+
+                    print(f"transaction q after : {transaction_queue}")
 
                 if data_request[0] == 'leader-response':
                     # leader-response, {leader: True}
@@ -330,10 +367,16 @@ class Server(DatagramProtocol):
                     pos_chain_leader = identity.derypt_data(data_request[1])
                     
                     print('chain leader response : ', pos_chain_leader)
-                    if eval(pos_chain_leader)["leader"]:
-                        self.chain_leader = signing_peer
 
-                        print(f"Leader node : {self.chain_leader.name}")
+                    chain_leader_data = eval(identity.derypt_data(data_request[1]))
+
+                    if chain_leader_data["leader"] is True:
+
+                        network_leader = signing_peer.name
+
+                        next_network_leader = chain_leader_data['next_leader']
+
+                        print(f"Leader node : {network_leader}")
                     
                     else:
                         print(f"{signing_peer.name} isn not a leader")
@@ -447,7 +490,10 @@ def broadcast_new_block(new_block : Block):
     notify other nodes about the new block
     """
 
+    global next_network_leader
+
     block_data  = {
+        'network_leader' : next_network_leader,
         'header' : new_block.header,
         'transactions' : [tx.hash for tx in new_block.transactions]
     }
@@ -463,14 +509,18 @@ def network_monitor():
 
     while True:
 
-        global network_leader, next_network_leader
+        global network_leader, next_network_leader, last_block_time
+
+        if last_block_time == None:
+            last_block_time = datetime.datetime.today()
+
         if network_leader is True:
             """
             only create new blocks when you are the network leader
             """
 
             if ((datetime.datetime.today() - last_block_time).seconds 
-                 < 5) or (len(transaction_queue) < 2):
+                 < 20) or (len(transaction_queue) < 2):
                 """
                 blocks created at 20 seconds intervals and
                 when there are enough transactions to do so
@@ -498,6 +548,7 @@ def network_monitor():
                 broadcast_new_block(new_block)
 
                 network_leader = False
+                network_leader= next_network_leader
         else:
             reason = 'wait for your chance'
             print(reason)

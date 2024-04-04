@@ -16,10 +16,6 @@ from .decorators import authenticated, authorised, broadcast
 # TODO -> transactionid and blockid not all record data
 
 
-# TODO send data to other nodes on the network 
- 
-
-
 def get_block_data(chain: blockchain.Chain, block_number):
     # get the transactions and header of block using block_id
     try:
