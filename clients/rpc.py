@@ -1,6 +1,7 @@
 from jsonrpcserver import Success, Error
 import datetime
 from dataclasses import asdict
+from uuid import uuid4
 
 from blockchain import blockchain
 from blockchain.trasanction import Transaction
@@ -102,13 +103,14 @@ def create_account(db: database.Database, details) -> Transaction:
 
     user_type = None
     
-    person_id = None
+    person_id = uuid4()
+
+    userdata['userid'] = person_id
     
     # save new user only with public_key
     if 'public_key' in userdata.keys():
         if db.find_user(userdata['public_key']) == None:
             person = db.save_person(userdata)
-            person_id = person.inserted_id
         else:
             return { 'failed' : 'user already exists'}
 
@@ -127,6 +129,16 @@ def create_account(db: database.Database, details) -> Transaction:
     save_transaction(db, transction)
 
     return transction
+
+@authenticated
+def find_person(db: database.Database, details):
+    # not a recorded transaction
+    search_string = details['search_string']
+
+    users = db.find_user(search_string)
+    
+    return users
+
 
 @authorised
 def view_records(db: database.Database, details) -> Transaction:

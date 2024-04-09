@@ -32,7 +32,6 @@ class HealthProfessional(Person):
     
     def save(self, db):
         hp_details = {"name": self.name, "pk": self.public_key, "role": self.role,
-                      "practitioner_id": self.p_id, "organisation_id": self.organisation
-                      }
+            "practitioner_id": self.p_id, "organisation_id": self.organisation}
         
         db.save_practitioners(self.p_id, hp_details)

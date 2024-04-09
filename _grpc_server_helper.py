@@ -11,7 +11,6 @@ from blockchain.blockchain import Chain
 from blockchain.trasanction import Transaction
 from block_pb2 import Block
 
-# TODO make all commuications singed and encrypted
 
 
 class BlockDownloader(block_pb2_grpc.BlockDownloaderServicer):

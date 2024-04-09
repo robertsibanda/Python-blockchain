@@ -27,7 +27,7 @@ from blockchain.security.Identity import Identity
 from blockchain.storage.database import Database
 from blockchain.storage.onchain import load_all_blocks, save_transaction
 from blockchain.trasanction import Transaction
-from clients.rpc import create_account, view_records, update_permissions, get_block_data, insert_record
+from clients.rpc import create_account, view_records, update_permissions, get_block_data, insert_record, find_person
 
 """
 *db_name* 
@@ -585,6 +585,15 @@ def update_data_permissions(headers):
         return Success(result)
         
     return Success({ "succes" : "permission added" })
+
+@method
+def search_person(headers):
+    result = find_person(database, headers)
+
+    if len(result) == 0:
+        return Success({ 'error' : 'no user found'})
+        
+    else: return Success({ 'users' : result})
 
 @method
 def delete_account(headers):

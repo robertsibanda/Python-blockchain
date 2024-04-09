@@ -6,8 +6,6 @@ from blockchain import blockchain
 from blockchain.block import Block
 from blockchain.trasanction import Transaction
 
-# TODO create method for indexing and looking up transaction details
-
 
 class Database:
     
@@ -32,9 +30,38 @@ class Database:
         collection = self.database["users"]
         return collection.insert_one(userdata)
 
-    def find_user(self, key):
+    def find_user(self, infor, userid):
+        # get a user where infor is a substring of identifying information
+        # user id form request body
+
         collection = self.database['users']
-        return collection.find_one({ 'public_key' : key})
+        found_users = collection.find({})
+        users_to_return = []
+
+        for user in found_users:
+            if infor in user['fullname'] \
+                or infor in user['phone number'] \
+                    or infor in user['natinal id']:
+                
+                my_patient = False
+                collection = self.database['patient']
+                patient_infor = collection.find_one({ 'userid' : userid})
+                    # user is a patient
+                if patient_infor is not None:
+                    if userid in patient_infor['permissions']:
+                        my_patient = True
+                else:
+                    my_patient = False
+
+                users_to_return.append({
+                    'fullname' : user['fullname'],
+                    'gender' : user['gender'],
+                    'contact' : user['phone number'],
+                    'user type' : user['usertype'],
+                    'allow edit' : my_patient
+                })
+
+        return users_to_return
 
     def save_patient(self, patient_data):
         collection = self.database["patients"]

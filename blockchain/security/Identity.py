@@ -17,7 +17,8 @@ class Identity:
         """
         create new keys for new node
         """
-        print("Generating new keys .. first time launch\nPlease wait a moment ....")
+        print("Generating new keys .. \
+            first time launch\nPlease wait a moment ....")
         new_public_key, new_private_key = rsa.newkeys(2000)
 
         private_key_file = open("private.pem", 'wb')

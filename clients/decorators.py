@@ -8,6 +8,7 @@ from blockchain.storage.object.people import Person, Patient, HealthProfessional
 def authenticated(func: Callable):
     def wrapper(*args, **kwargs):
         # make sure the data is from the intended user
+        
         return func(*args, **kwargs)
     
     return wrapper

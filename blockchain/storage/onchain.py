@@ -1,4 +1,5 @@
 # store small amounts of data verifying data in the offchain
+
 from blockchain.trasanction import Transaction
 from blockchain.blockchain import Chain
 from blockchain.block import Block
@@ -25,7 +26,6 @@ def save_transaction(db, transaction: Transaction):
         db.update_permissions(data['patient'], data['doctor'])
     
     if transaction.type == 'account init':
-
         if data['user_type'] == 'doctor':
             db.save_doctor({'public_key' : data['public_key'], 
                 'userid' : data['userid']})
@@ -61,7 +61,8 @@ def load_all_blocks(db, chain: Chain):
                 tr = Transaction(transaction['type'], transaction['data'],
                     transaction['metadata'], transaction['hash'])
                 
-                print(f"Comparing hashes {expected_tr_hash} and {create_hash_default(tr.data)}",
+                print(f"Comparing hashes {expected_tr_hash} \
+                    and {create_hash_default(tr.data)}",
                       tr.hash == create_hash_default(tr.data))
 
                 if expected_tr_hash != create_hash_default(tr.data):

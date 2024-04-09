@@ -114,8 +114,10 @@ class ChainValidator:
     def download_chain(self, peer):
         hash_chain = HashChain(chain=set())
         print(f"Downloading from : {peer.address[0]}:50051")
+
         with grpc.insecure_channel(f"{peer.address[0]}:50051") as channel:
             stub = block_pb2_grpc.BlockDownloaderStub(channel)
+            
             for block in stub.GetHashBlocks(
                     block_pb2.HashBlocksRequest(hash=str(self.last_block_hash))):
                 print(f"hash block downloaded {block}")
@@ -155,8 +157,9 @@ class ChainValidator:
                 lg_chain = chain
                 lg_node = peer
         
-        smaller_chains = [chain for chain in list(self.chains_to_validate.values())
-                          if chain < lg_chain]
+        smaller_chains = [chain for chain 
+            in list(self.chains_to_validate.values()) 
+            if chain < lg_chain]
         
         print(f"Smaller chains : {smaller_chains}")
         
@@ -172,21 +175,21 @@ class ChainValidator:
             # smaller chains are part of the larger chain
             print(f"Largest node : {lg_node} with {lg_chain}")
             download_peer_blocks(f"{lg_node.address[0]}",
-                                 self.chain, self.chain.get_last_block().header['hash'],
-                                 self.database)
+                self.chain, self.chain.get_last_block().header['hash'],
+                self.database)
+
         elif (subset / len(list(self.chains_to_validate.values())) == 0
               and len(self.peers) == 1):
             
             print(f"One node : {lg_node} with {lg_chain}")
             download_peer_blocks(f"{lg_node.address[0]}",
-                                 self.chain, self.chain.get_last_block().header['hash'],
-                                 self.database)
+                self.chain, self.chain.get_last_block().header['hash'],
+                self.database)
         else:
             print(f"no peer agree still downloading")
             # reject the larger chain and go for a smaller chain
             download_peer_blocks(f"{lg_node.address[0]}", self.chain,
-                                 self.chain.get_last_block().header['hash'], self.database
-                                 )
+                self.chain.get_last_block().header['hash'], self.database)
             # self.peers.pop(lg_node)
             # self.get_all_chains_tp()  # repeat the process
         return
