@@ -4,7 +4,7 @@
 from dataclasses import dataclass
 
 
-@dataclasss
+@dataclass
 class Peer:
     address: str
     pk: str

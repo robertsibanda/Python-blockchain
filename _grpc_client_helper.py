@@ -60,8 +60,7 @@ def download_peer_blocks(peer_address, chain, block_id, database=None):
                 # chain.delete_all_blocks()
                 print("Block hash mismatch while downloading!!")
                 print(f"Expected :  {expected_prev_block} : "
-                      f"found : {blk.header['prev_hash']}"
-                      )
+                      f"found : {blk.header['prev_hash']}")
                 print(f"Ignoring block : {blk.header}")
                 continue
             
@@ -122,8 +121,7 @@ class ChainValidator:
                     block_pb2.HashBlocksRequest(hash=str(self.last_block_hash))):
                 print(f"hash block downloaded {block}")
                 hash_chain.add_block(HashBlock(hash=block.hash,
-                                               previous_hash=block.prev_hash,
-                                               data_hash=block.data_hash))
+                    previous_hash=block.prev_hash,data_hash=block.data_hash))
         return hash_chain
     
     def valida_chains(lg_chain, other_chains):
@@ -138,7 +136,8 @@ class ChainValidator:
 
         with ThreadPoolExecutor(max_workers=len(self.peers)) as executor:
             future_to_chain = {
-                executor.submit(self.download_chain, peer): peer for peer in self.peers}
+                executor.submit(self.download_chain, peer): 
+                    peer for peer in self.peers}
             
             for future in as_completed(future_to_chain):
                 peer = future_to_chain[future]

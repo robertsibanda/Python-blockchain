@@ -98,7 +98,6 @@ def update_permissions(db: database.Database, details) -> Transaction:
 
 def create_account(db: database.Database, details) -> Transaction:
     
-    # change jsobOject to dict
     userdata  = details
 
     user_type = None
@@ -106,20 +105,28 @@ def create_account(db: database.Database, details) -> Transaction:
     person_id = uuid4()
 
     userdata['userid'] = person_id
-    
+
+    userid_conflict = False
+
     # save new user only with public_key
     if 'public_key' in userdata.keys():
         if db.find_user(userdata['public_key']) == None:
-            person = db.save_person(userdata)
+            if db.find_user_byid(person_id) == None:
+                userid_conflict = False
+                person = db.save_person(userdata)
+            else:
+                userid_conflict = True
+                return { 'failed' : 'Server error\nTry again'}
+
         else:
             return { 'failed' : 'user already exists'}
 
     if 'patient' in userdata.values():
-        # create account for Patient
+        # set user account property for Patient
         user_type = 'patient'
 
     if 'doctor' in userdata.values():
-        # create account for doctor
+        # set user account property for doctor
         user_type = 'doctor'
 
     transction = Transaction(type="account init", 
@@ -132,10 +139,10 @@ def create_account(db: database.Database, details) -> Transaction:
 
 @authenticated
 def find_person(db: database.Database, details):
-    # not a recorded transaction
+    # not recorded as a transaction
     search_string = details['search_string']
 
-    users = db.find_user(search_string)
+    users = db.search_user(search_string)
     
     return users
 

@@ -27,10 +27,16 @@ class Database:
         return collection.find_one({"name": name})
     
     def save_person(self, userdata):
+        # create new user account with only public key
         collection = self.database["users"]
         return collection.insert_one(userdata)
-
-    def find_user(self, infor, userid):
+    
+    def find_user(self, pk):
+        # get user with public_key
+        collection = self.database['users']
+        return collection.find_one({ 'public_key' : pk })
+    
+    def search_user(self, infor, userid):
         # get a user where infor is a substring of identifying information
         # user id form request body
 
@@ -70,7 +76,7 @@ class Database:
 
     def get_patient(self, id):
         collection = self.database['patients']
-        return collection.find_one({ '_id' : ObjectId(id)})
+        return collection.find_one({ 'userid' : id})
 
     def save_doctor(self, doctor_data):
         collection = self.database['doctor']
@@ -78,10 +84,9 @@ class Database:
 
     def get_doctor(self, id):
         collection = self.database['doctor']
-        return collection.find_one({ '_id' : ObjectId(id) })
+        return collection.find_one({ 'userid' : id })
 
     def update_permissions(self, id, doctor):
-        print("Adding doctor : " , doctor, " to -> ", id)
         collection = self.database["patients"]
 
         patient = collection.find_one({'_id' : ObjectId(id)})
@@ -190,6 +195,3 @@ class Database:
         collection = self.database["blocks"]
         
         return collection.find({})
-    
-    def load_peers(self):
-        pass
