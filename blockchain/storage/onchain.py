@@ -23,16 +23,19 @@ def save_transaction(db, transaction: Transaction):
             record_type=data['type'], record_data=data['data'])
     
     if transaction.type == "permission update":
-        db.update_permissions(data['patient'], data['doctor'])
+        '''  transaction = Transaction(type="permission update", 
+            data={'doctor' : doctor, 
+            'patient' : patient_id, 'perm' : perm, 'perm_code' : perm_code }, 
+            metadata=str(datetime.datetime.today()), hash='')'''
+
+        db.update_permissions(data['patient'], data['doctor'], data['perm'], data['perm_code'])
     
     if transaction.type == 'account init':
         if data['user_type'] == 'doctor':
-            db.save_doctor({'public_key' : data['public_key'], 
-                'userid' : data['userid']})
+            db.save_doctor(data['public_key'],data['userid'])
 
         elif data['user_type'] == 'patient':
-            db.save_patient({'public_key' : data['public_key'], 
-                'userid' : data['userid']})
+            db.save_patient(data['public_key'],data['userid'])
     return
 
 

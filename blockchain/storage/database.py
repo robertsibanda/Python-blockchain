@@ -18,10 +18,6 @@ class Database:
         except Exception as ex:
             print("Error refreshing database :", ex)
     
-    def lookup_organisation(self, organisation):
-        collection = self.database['organisations']
-        return collection.find_one({"organisation_id": organisation})
-    
     def get_credentials(self, name):
         collection = self.database["users"]
         return collection.find_one({"name": name})
@@ -35,87 +31,164 @@ class Database:
         # get user with public_key
         collection = self.database['users']
         return collection.find_one({ 'public_key' : pk })
-    
-    def search_user(self, infor, userid):
-        # get a user where infor is a substring of identifying information
+
+    def find_user_byid(self, userid):
+        found_user = None
+        collection = self.database['users']
+        found_user = collection.find_one({ 'userid' : userid})
+        return found_user
+
+    def search_my_doctor(self, userid):
+        # lookup user who i gave permission 
+        my_docs = []
+        docs = self.search_user('', 'doctor', userid)
+
+        for doc in docs:
+            if doc['view'] is True or doc['update'] is True:
+                my_docs.append(doc)
+        return my_docs
+
+    def search_my_patient(self, userid):
+        # lookup users who gave me permission in the database
+        my_patients = []
+        patients = self.search_user('', 'patient', userid)
+        for patient in patients:
+            if doc['view'] is True or doc['update'] is True:
+                my_patients.append(patient)
+        return my_patients
+
+    def search_user(self, infor, user_type, userid):
+        # get a user where info is a sub-string of identifying information
         # user id form request body
 
         collection = self.database['users']
-        found_users = collection.find({})
-        users_to_return = []
 
-        for user in found_users:
-            if infor in user['fullname'] \
-                or infor in user['phone number'] \
-                    or infor in user['natinal id']:
-                
-                my_patient = False
-                collection = self.database['patient']
-                patient_infor = collection.find_one({ 'userid' : userid})
-                    # user is a patient
-                if patient_infor is not None:
-                    if userid in patient_infor['permissions']:
-                        my_patient = True
-                else:
-                    my_patient = False
+        found_users = collection.find({ 'usertype' : user_type })
+
+        users_to_return = []
+        
+        if user_type == 'patient':
+            # searching for patient
+            for patient in found_users:
+                can_view, can_update = False, False
+
+                try:
+                    if userid in patient['doctor_allowed_view']:
+                        can_view = True
+                except Exception as ex:
+                    print("Error : " , ex)
+                    doc_not_found = True
+
+                #check if doctor is allowed to update records_data
+                try:
+                    if userid in patient['doctor_allowed_update']:
+                        can_view = True
+                except Exception as ex:
+                    print("Error : " , ex)
+                    doc_not_found = True
 
                 users_to_return.append({
-                    'fullname' : user['fullname'],
-                    'gender' : user['gender'],
-                    'contact' : user['phone number'],
-                    'user type' : user['usertype'],
-                    'allow edit' : my_patient
+                    'fullname' : patient['fullname'],
+                    'gender' : patient['gender'],
+                    'userid' : patient['userid'],
+                    'contact' : patient['contact'],
+                    'user type' : patient['usertype'],
+                    'view' : can_view,
+                    'update' : can_update,
+                })
+
+        elif user_type == 'doctor':
+            # searching for doctor
+            patient = collection.find_one({ 'userid' : userid })
+            
+            for doc in found_users:
+                can_view =  False
+                can_update = False
+
+                # check if doctor is allowed to view records
+                try:
+                    if doc['userid'] in patient['doctor_allowed_view']:
+                        can_view = True
+                except Exception as ex:
+                    print("Error : " , ex)
+                    doc_not_found = True
+
+                #check if doctor is allowed to update records_data
+                try:
+                    if doc['userid'] in patient['doctor_allowed_update']:
+                        can_update = True
+                except Exception as ex:
+                    print("Error : " , ex)
+                    doc_not_found = True
+
+                users_to_return.append({
+                    'fullname' : doc['fullname'],
+                    'gender' : doc['gender'],
+                    'userid' : doc['userid'],
+                    'contact' : doc['contact'],
+                    'user type' : doc['usertype'],
+                    'organisation' : doc['organisation'],
+                    'occupation' : doc['occupation'],
+                    'view' : can_view,
+                    'update' : can_update,
                 })
 
         return users_to_return
 
-    def save_patient(self, patient_data):
+    def save_patient(self, pk, userid):
         collection = self.database["patients"]
-        return collection.insert_one({'public_key' : patient_data,
+        return collection.insert_one(
+            {'public_key' : pk,
+            'userid' : userid,
              'permissions' : [], 'records' : []})
 
     def get_patient(self, id):
         collection = self.database['patients']
         return collection.find_one({ 'userid' : id})
 
-    def save_doctor(self, doctor_data):
+    def save_doctor(self, pk, userid):
         collection = self.database['doctor']
-        return collection.insert_one({ 'public_key' : doctor_data})
+        return collection.insert_one(
+            {'public_key' : pk,
+            'userid' : userid})
 
     def get_doctor(self, id):
         collection = self.database['doctor']
         return collection.find_one({ 'userid' : id })
 
-    def update_permissions(self, id, doctor):
-        collection = self.database["patients"]
+    def update_permissions(self, userid, doctor, perm, perm_code):
+        collection = self.database["users"]
+        patient = collection.find_one({'userid' : userid})
 
-        patient = collection.find_one({'_id' : ObjectId(id)})
-
+        perm_dir = f'doctor_allowed_{perm}'
+        
+        found_doctors = None
+        
         new_lis = []
 
-
+        if perm_code is False:
+            allowed = patient[perm_dir]
+            allowed = allowed.remove(doctor)
+            collection.find_one_and_update({ 'userid' : userid },
+                { '$set' : {perm_dir: allowed}})
+            return
+        
         try:
-            if doctor in patient['permissions']:
-                return { "error" : "doctor already alloweed"}
-        except TypeError:
-            error = 'no permissions found for patient'
+            found_doctors = patient[perm_dir]
+        except KeyError:
+            found_doctors = None
 
-        try:
-            if patient['permissions'] == None:      
-                new_lis = [doctor]
-        except TypeError:
-            error = "no permissions found for patient"
-
-        if len(patient['permissions'])  == 0:
+        if found_doctors is None:
             new_lis = [doctor]
-
         else:
-            new_lis = patient['permissions']
+            new_lis = patient[perm_dir]
 
             new_lis.append(doctor)
         
-        collection.find_one_and_update({'_id': ObjectId(id)}, 
-            { '$set' : {'permissions': new_lis}})
+        print('Adding permission')
+        permed_patient = collection.find_one_and_update({'userid': userid}, 
+            { '$set' : {perm_dir: new_lis}})
+        print('patient updated : ' , permed_patient)
 
         return 
 
@@ -146,18 +219,11 @@ class Database:
 
         return
 
-    def peer_lookup(self, addr):
-        collection = self.database["users"]
-        return collection.find_one({"address": addr})
     
     def save_credentials(self, user):
         collection = self.database["users"]
         collection.insert_one(user)
         return
-    
-    def update_credentials(self, name, user):
-        collection = self.database["users"]
-        collection.find_one_and_replace({"name": name}, user)
     
     def save_block(self, block: blockchain.Block):
         collection = self.database["blocks"]
@@ -180,16 +246,6 @@ class Database:
             "transactions": transactions2save})
 
         return True
-    
-    def lookup_practitioner(self, orgnisation_id, practitioner_id):
-
-        collection = self.database["practitioners"]
-        return collection.find_one({'practitioner_id': practitioner_id, 
-            "organisation_id": orgnisation_id})
-    
-    def save_practitioners(self, p_id, details):
-        collection = self.database["practitioners"]
-        collection.find_one_and_replace({"practitioner_id": p_id}, details)
     
     def get_all_blocks(self):
         collection = self.database["blocks"]

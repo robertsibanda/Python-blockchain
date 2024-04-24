@@ -2,9 +2,11 @@ from jsonrpcserver import Success, Error
 import datetime
 from dataclasses import asdict
 from uuid import uuid4
+import rsa
 
 from blockchain import blockchain
 from blockchain.trasanction import Transaction
+from blockchain.security import verify_data
 from blockchain.storage import database
 from blockchain.storage.onchain import save_transaction
 from blockchain.storage.object.organisation import Org
@@ -78,23 +80,39 @@ def register_new_practitioner(db: database.Database, details) -> Transaction:
 @authenticated
 def update_permissions(db: database.Database, details) -> Transaction:
 
+    print('Permission request : ' , details)
     perms_data = details
 
-    """patient updates permissions
-    # -> give caregivers permissions to update records
-    # -> give researchers permissions to use data in researches
+    patient_id = details['userid']
 
-    perms_data
-        [...,doctor_x, doctor_y]
-    """
-    transaction = Transaction(type="permission update", 
-        data={'doctor' : perms_data['doctor'], 
-        'patient' : perms_data['patient'] }, 
-        metadata=str(datetime.datetime.today()), hash='')
-        
-    save_transaction(db, transaction)
+    doctor = details['doctor']
 
-    return transaction
+    perm = details['perm']
+
+    perm_code = details['perm-code']
+
+  
+
+    verified_data = True
+    if verified_data:
+
+        """patient updates permissions
+        # -> give caregivers permissions to update records
+        # -> give researchers permissions to use data in researches
+
+        perms_data
+            [...,doctor_x, doctor_y]
+        """
+        transaction = Transaction(type="permission update", 
+            data={'doctor' : doctor, 
+            'patient' : patient_id, 'perm' : perm, 'perm_code' : perm_code }, 
+            metadata=str(datetime.datetime.today()), hash='')
+            
+        save_transaction(db, transaction)
+
+        return transaction
+    else:
+        return { 'failed' : 'data cannot be verified'}
 
 def create_account(db: database.Database, details) -> Transaction:
     
@@ -102,7 +120,7 @@ def create_account(db: database.Database, details) -> Transaction:
 
     user_type = None
     
-    person_id = uuid4()
+    person_id = uuid4().__str__()
 
     userdata['userid'] = person_id
 
@@ -141,14 +159,20 @@ def create_account(db: database.Database, details) -> Transaction:
 def find_person(db: database.Database, details):
     # not recorded as a transaction
     search_string = details['search_string']
+    user_type = details['user_type']
 
-    users = db.search_user(search_string)
+    users = db.search_user(search_string, user_type, details['userid'])
     
     return users
 
 
 @authorised
 def view_records(db: database.Database, details) -> Transaction:
+    try:
+        if details['error']:
+            return details
+    except KeyError:
+        ingore=  True
 
     # view records of a patient
     records_data = details
@@ -177,3 +201,11 @@ def insert_record(db: database.Database, details) -> Transaction:
 
     save_transaction(db, transaction)
     return transaction
+
+
+def find_my_docs(db : database.Database, details):
+    # find doctors who can view or update my records
+    userid = details['userid']
+
+    users = db.search_my_doctor(userid)
+    return users

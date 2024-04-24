@@ -15,35 +15,52 @@ def authenticated(func: Callable):
 
 
 def authorised(func: Callable):
+    """
+    check if doctor is permitted by patient
+    """
 
     def wrapper(*args, **kwargs):
 
+        database = args[0]
+        patient = args[1]['patient']
+
+        patient_data = database.get_patient(patient)
+
+        can_view = patient_data['can_view']
+        can_update = patient_data['can_update']
+
         if func.__name__ == 'insert_record':
-            """
-            check if doctor is permitted by patient
-            """
-
+           
+            #TODO change perm to use userid not pk
             doctor = args[1]['doctor']
-
-            database = args[0]
-
-            patient = args[1]['patient']
-
-            doctor_pk = database.get_doctor(doctor)['public_key']
-            patient_data = database.get_patient(patient)
-
-            permissioned_doctors = patient_data['permissions']
 
             doc_found = False
 
-            if doctor in permissioned_doctors:
+            if doctor in can_update:
                 doc_found = True
 
             if doc_found is False:
                 args = [args,{ "error" : "doctor not allowed"} ]
 
             return func(*args, **kwargs)
-    
+
+        if func.__name__ == 'view_records':
+            doctor = None
+
+            try:
+                doctor = args[1]['doctor']
+            except KeyError:
+                # patient view of information
+                return func(*args, **kwargs)
+
+            if doctor in can_view:
+                doc_found = True
+
+            if doc_found is False:
+                args = [args,{ "error" : "doctor not allowed"} ]
+            
+            return func(*args, **kwargs)
+
     return wrapper
 
 

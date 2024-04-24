@@ -27,7 +27,7 @@ from blockchain.security.Identity import Identity
 from blockchain.storage.database import Database
 from blockchain.storage.onchain import load_all_blocks, save_transaction
 from blockchain.trasanction import Transaction
-from clients.rpc import create_account, view_records, update_permissions, get_block_data, insert_record, find_person
+from clients.rpc import create_account, view_records, update_permissions, get_block_data, insert_record, find_person, find_my_docs
 
 """
 *db_name* 
@@ -46,7 +46,7 @@ from the database onto the chain
 encrypting, decrypting and verifying functions
 
 *transaction_queue*
-: contains all the transactions recieved but
+: contains all the transactions received but
 not yet written to the chain
 
 *network_leader*
@@ -74,8 +74,6 @@ chain = Chain()
 # load blocks saved before shutdown
 load_all_blocks(database, chain)
 
-# load peers connected to before shutdown
-database.load_peers()
 
 # check if the chain from database is valid
 if chain.is_valid() is not True:
@@ -104,7 +102,7 @@ class Server(DatagramProtocol):
         try:
             self.server = socket.gethostbyname('node-reg'), 9009
         except:
-            self.server = '172.19.0.5', 9009
+            self.server = '172.19.0.2', 9009
 
         self.index_being_validated = 0
         self.new_join = True
@@ -546,7 +544,7 @@ def signup(headers):
     if isinstance(result, Transaction):
         transaction_queue.append(result)
         if broadcast_transction(result):
-            return Success({ "account created " : "done"})
+            return Success({ "success" : result.data['userid']})
     else:
         return Success(result)
     print(transaction_queue)
@@ -562,7 +560,7 @@ def update_records(headers):
     else:
         return Success(result)
 
-    return Success({ "record added" : "done" })
+    return Success({ "success" : "record added" })
 
 
 @method
@@ -584,7 +582,15 @@ def update_data_permissions(headers):
     else:
         return Success(result)
         
-    return Success({ "succes" : "permission added" })
+    return Success({ "success" : "permission added" })
+
+@method 
+def get_my_doctors(headers):
+    result = find_my_docs(database, headers)
+    if len(result) == 0:
+        return Success({ 'success' : 'no users found'})
+    else:
+        return Success({ 'success' : result})
 
 @method
 def search_person(headers):
@@ -593,7 +599,7 @@ def search_person(headers):
     if len(result) == 0:
         return Success({ 'error' : 'no user found'})
         
-    else: return Success({ 'users' : result})
+    else: return Success({ 'success' : result})
 
 @method
 def delete_account(headers):
