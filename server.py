@@ -292,6 +292,7 @@ class Server(DatagramProtocol):
                             # add new block to chain
                             chain.add_new_block(new_block)
                             print(f"Block header 2: {new_block.header}")
+                            print(f"Block 1 header : {block_header}")
 
                             if (new_block.header["data_hash"] == data_hash and
                                     new_block.header["hash"] == block_hash):
@@ -500,7 +501,7 @@ def network_monitor():
             """
 
             if ((datetime.datetime.today() - last_block_time).seconds 
-                 < 20) or (len(transaction_queue) < 2):
+                 < 20) or (len(transaction_queue) < 10):
                 """
                 blocks created at 20 seconds intervals and
                 when there are enough transactions to do so
@@ -571,6 +572,7 @@ def view_health_records(headers):
     if isinstance(response, Response):
         transaction = response.transaction
         transaction_queue.append(transaction)
+        broadcast_transction(transaction)
         return Success({ "success" : response.response})
     else: 
         return Success(response)

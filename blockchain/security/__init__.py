@@ -8,7 +8,7 @@ def verify_data(data, signaure, pk) -> bool:
     verify integrity of data with public key of the sender
     """
     # print(f"Public key: {PublicKey._save_pkcs1_pem(pk)}")
-    try: rsa.verify(data, signaure, pk) == "SHA-256"; print("verified")
+    try: return rsa.verify(data, signaure, pk) == "SHA-256"
     except: return True
 
 
