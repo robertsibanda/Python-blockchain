@@ -2,9 +2,6 @@ from typing import Callable
 from blockchain.storage.object.people import Person, Patient, HealthProfessional
 
 
-# TODO implement authorisation and authentication
-
-
 def authenticated(func: Callable):
     def wrapper(*args, **kwargs):
         # make sure the data is from the intended user
@@ -25,10 +22,20 @@ def authorised(func: Callable):
         patient = args[1]['patient']
 
         patient_data = database.get_patient(patient)
-
-        can_view = patient_data['can_view']
-        can_update = patient_data['can_update']
-
+        
+        print('Patient Data : ', patient_data)
+        
+        can_view = []
+        try:
+            can_view = patient_data['doctor_allowed_view']
+        except:
+           can_view = []
+            
+        try:
+            can_update = patient_data['doctor_allowed_update']
+        except:
+            can_update = []
+            
         if func.__name__ == 'insert_record':
            
             #TODO change perm to use userid not pk

@@ -6,6 +6,10 @@ from blockchain.block import Block
 from blockchain.security import create_hash_default
 
 
+def get_patient_records(db, patient):
+    # retrieve patient records from database
+    return
+
 def save_transaction(db, transaction: Transaction):
 
     """
@@ -19,23 +23,23 @@ def save_transaction(db, transaction: Transaction):
 
         patient = transaction.metadata['patient']
 
-        db.update_records(id=patient,
+        db.update_records(patient,
             record_type=data['type'], record_data=data['data'])
     
-    if transaction.type == "permission update":
-        '''  transaction = Transaction(type="permission update", 
-            data={'doctor' : doctor, 
-            'patient' : patient_id, 'perm' : perm, 'perm_code' : perm_code }, 
-            metadata=str(datetime.datetime.today()), hash='')'''
-
+    elif transaction.type == "permission update":
+     
         db.update_permissions(data['patient'], data['doctor'], data['perm'], data['perm_code'])
     
-    if transaction.type == 'account init':
+    elif transaction.type == 'account init':
         if data['user_type'] == 'doctor':
             db.save_doctor(data['public_key'],data['userid'])
 
         elif data['user_type'] == 'patient':
             db.save_patient(data['public_key'],data['userid'])
+
+    elif transaction.type == 'log':
+        pass
+    
     return
 
 

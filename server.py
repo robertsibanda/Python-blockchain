@@ -27,7 +27,8 @@ from blockchain.security.Identity import Identity
 from blockchain.storage.database import Database
 from blockchain.storage.onchain import load_all_blocks, save_transaction
 from blockchain.trasanction import Transaction
-from clients.rpc import create_account, view_records, update_permissions, get_block_data, insert_record, find_person, find_my_docs
+from clients.rpc import create_account, view_records, update_permissions,  \
+    get_block_data, insert_record, find_person, find_my_docs, Response
 
 """
 *db_name* 
@@ -565,11 +566,14 @@ def update_records(headers):
 
 @method
 def view_health_records(headers):
-    transaction = view_records(database, headers)
+    response = view_records(database, headers)
     # print("Transction created : " , transaction.hash, ' -> ', transaction.data )
-    transaction_queue.append(transaction)
-    print("Transaction Que : ", transaction_queue)
-    return Success({ "done" : "records"})
+    if isinstance(response, Response):
+        transaction = response.transaction
+        transaction_queue.append(transaction)
+        return Success({ "success" : response.response})
+    else: 
+        return Success(response)
 
 
 @method

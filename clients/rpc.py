@@ -1,6 +1,6 @@
 from jsonrpcserver import Success, Error
 import datetime
-from dataclasses import asdict
+from dataclasses import asdict, dataclass
 from uuid import uuid4
 import rsa
 
@@ -19,6 +19,11 @@ from .decorators import authenticated, authorised, broadcast
 # TODO -> transactionid and blockid not all record data
 
 
+@dataclass
+class Response:
+    transaction: Transaction
+    response : list
+
 def get_block_data(chain: blockchain.Chain, block_number):
     # get the transactions and header of block using block_id
     try:
@@ -33,49 +38,6 @@ def get_block_data(chain: blockchain.Chain, block_number):
 def is_chain_valid(chain: blockchain.Chain):
     return chain.is_valid()
 
-
-@authorised
-@broadcast
-def create_new_organisation(db: database.Database, details) -> Transaction:
-    # submit a request to create a new organisation
-    pass
-
-
-def register_new_practitioner(db: database.Database, details) -> Transaction:
-    """
-    Register a new practioner in the chain
-    :param db: ehr_chain database
-    :param details: credentials for new practioner
-    :return:
-    """
-    
-    try:
-        # print("Signup details : ", details)
-        organisation_id = details['organisation_id']
-        practitioner_id = details['practitioner_id']
-        
-        organisation = Org(db, organisation_id)
-        
-        practitioner_found = organisation.get_practitioner(practitioner_id)
-        
-        # print('Practitoner : ' , practitioner_id)
-        # print('Practitoner : ' , organisation.get_practitioner(practitioner_id))
-        if organisation.get_practitioner(practitioner_id) is None:
-            return Success({"Error": "You are not able to register under this organisation"})
-        
-        if practitioner_found["pk"] != "":
-            return Success({"Error": "Practioner is already registered"})
-        
-        hp_name = details['practitioner_name']
-        hp_role = details['practitioner_role']
-        hp_pk = details['practitioner_pk']
-        health_professional = HealthProfessional(
-            hp_name, organisation_id, hp_role, hp_pk, practitioner_id)
-        health_professional.save(db)
-        
-        return 'acc_created'
-    except KeyError as ex:
-        return Success({"Error": f"Missing request data {ex}"})
 
 @authenticated
 def update_permissions(db: database.Database, details) -> Transaction:
@@ -168,17 +130,26 @@ def find_person(db: database.Database, details):
 
 @authorised
 def view_records(db: database.Database, details) -> Transaction:
+    # view records of a patient
+    
     try:
         if details['error']:
             return details
     except KeyError:
         ingore=  True
 
-    # view records of a patient
+    patient = details['patient']
+    record_type=  details['record']
     records_data = details
+
+    records = db.get_patient_records(patient, record_type)
+
     transaction = Transaction(type="log", data=records_data, 
         metadata=['records view', str(datetime.datetime.today().date())], hash='')
-    return transaction
+    
+    save_transaction(db, transaction)
+    response = Response(transaction, records)
+    return response
 
 @authorised
 def insert_record(db: database.Database, details) -> Transaction:
@@ -189,13 +160,49 @@ def insert_record(db: database.Database, details) -> Transaction:
     except KeyError:
         ingore=  True
 
-    record_data = details['record']
+    print("Record data : ", details)
     record_type = details['type']
-    patient = details['patient']
+    
+    data_object = None
+    
     doctor = details['doctor']
+    patient = details['patient']
+    
+    if record_type == "notes":
+        data_object = {
+            'content' : details['content'],
+            'date' : details['date'],
+            'author': details['author'],
+            'doctor': doctor
+            }
+    elif record_type == "test":
+        data_object = {
+            'test' : details['test'],
+            'test_code' : details['test_code'],
+            'result': details['result'],
+            'result_code' : details['result_code'],
+            'date' : details['date'],
+            'doctor' : doctor
+        }
+
+    elif record_type == "allege":
+        data_object = {
+            'allege' : details['allege'],
+            'note' : details['note'],
+            'reaction' : details['reaction'],
+            'date' : details['date'],
+            'doctor' : doctor
+        }
+
+    elif record_type == "prescription":
+        data_object = {
+            'medicine_name' : details['name'],
+            'qty' : details['qty'],
+            'note' : details['note']
+        }
 
     transaction  = Transaction(type="record", 
-        data={ 'type' : record_type, 'data' : record_data},
+        data={ 'type' : record_type, 'data' : data_object},
         metadata={ 'patient' : patient, 'doctor' : doctor, 
         'date': str(datetime.datetime.today().date())}, hash='')
 
