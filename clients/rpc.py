@@ -196,9 +196,12 @@ def insert_record(db: database.Database, details) -> Transaction:
 
     elif record_type == "prescription":
         data_object = {
-            'medicine_name' : details['name'],
+            'medicine_name' : details['medicine_name'],
             'qty' : details['qty'],
-            'note' : details['note']
+            'note' : details['note'],
+            'date' : details['date'],
+            'doctor' : doctor,
+            'author' : details['author']
         }
 
     transaction  = Transaction(type="record", 
