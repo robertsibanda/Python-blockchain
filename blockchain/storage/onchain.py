@@ -37,6 +37,9 @@ def save_transaction(db, transaction: Transaction):
         elif data['user_type'] == 'patient':
             db.save_patient(data['public_key'],data['userid'])
 
+    elif transaction.type == "appointment":
+     
+        db.save_appointment(transaction.data)
     elif transaction.type == 'log':
         pass
     

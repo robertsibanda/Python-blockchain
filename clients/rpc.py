@@ -1,4 +1,5 @@
 from jsonrpcserver import Success, Error
+import time
 import datetime
 from dataclasses import asdict, dataclass
 from uuid import uuid4
@@ -150,6 +151,54 @@ def view_records(db: database.Database, details) -> Transaction:
     save_transaction(db, transaction)
     response = Response(transaction, records)
     return response
+
+
+def get_user_appointments(db : database.Database, details):
+    #TODO get appointments for a certain date
+    user = {
+        'userid' : details['userid'],
+        'user_type'  : details['user_type']
+    }
+    
+    return db.get_user_appointments(user, details['date'])
+
+
+def approve_appointment(db : database.Database, details):
+    return
+
+def book_appointment(db: database.Database, details):
+
+    approver = None
+
+    creator = details['creator']
+    date = details['date']
+    time = details['time']
+    doctor = details['doctor']
+    patient = details['patient']
+    doctor_name = details['doctor_name']
+    description = details['description']
+    doctor_proff = details['doctor_proff']
+    
+    if creator == patient:
+        approver = doctor
+    else:
+        approver = patient
+
+    tr_data = {
+        "approver" : approver,
+        "patient" : patient,
+        "doctor" : doctor,
+        "time" : time,
+        "date" : date,
+        "doctor_name" : doctor_name,
+        "description" : description,
+        "doctor_proff" : doctor_proff,
+        "approved" : False
+    }
+    
+    tr = Transaction('appointment', tr_data, str(datetime.datetime.today().date()), hash='')
+    save_transaction(db, tr)
+    return tr
 
 @authorised
 def insert_record(db: database.Database, details) -> Transaction:

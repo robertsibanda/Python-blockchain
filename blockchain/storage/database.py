@@ -42,6 +42,57 @@ class Database:
         found_user = collection.find_one({ 'userid' : userid})
         return found_user
 
+    def get_user_appointments(self, user, date):
+        appointments = None
+        collection = self.database[user['user_type']]
+        user = collection.find_one({ 'userid' : user['userid']})
+    
+        print('Appointments for user : ', user['appointments'])
+        try:
+            appointments = user['appointments']
+
+            if date == "all":
+                ignore_ = True
+            else:
+                appointments = [app for app in appointments 
+                    if app['date'] == date]
+        except Exception as ex:
+            print(ex)
+            appointments = []
+
+        return appointments
+
+
+    def save_appointment(self, data):
+        collection = self.database['patients']
+
+        patient = collection.find_one({ 'userid' : data['patient']})
+        patient_appointments = None
+        try:
+            patient_appointments = patient['appointments']
+            patient_appointments.append(data)
+        except Exception as ex:
+            print("Error (patient app) : ", ex)
+            patient_appointments = [data]
+
+        inserted_docs_patient = collection.find_one_and_update({ 'userid': data['patient']}, 
+            { '$set' : { 'appointments' : patient_appointments}})
+
+        
+        collection = self.database['doctor']
+        doctor_appointments = None
+
+        try:
+            doctor_appointments = doctor['appointments']
+            doctor_appointments.append(data)
+        except Exception as ex:
+            print("Error (doc app) : ", ex)
+            doctor_appointments = [data]
+        
+        inserted_docs_doctor =  collection.find_one_and_update({ 'userid': data['doctor']}, 
+            { '$set' : { 'appointments' : doctor_appointments}})
+
+        return
 
     def get_patient_records(self, userid, record_type):
         # get patient records from databases
@@ -151,6 +202,7 @@ class Database:
                     'user type' : doc['usertype'],
                     'organisation' : doc['organisation'],
                     'occupation' : doc['occupation'],
+                    'bio' : doc['bio'],
                     'view' : can_view,
                     'update' : can_update,
                 })

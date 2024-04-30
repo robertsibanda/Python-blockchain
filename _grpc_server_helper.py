@@ -26,17 +26,11 @@ class BlockDownloader(block_pb2_grpc.BlockDownloaderServicer):
         return blocks_2send
     
     def DownloadBlocks(self, request, context):
-        print(f"Download request id : {request.hash}")
-
         blocks_2send = self.get_block_range(self.chain, request.hash)
 
-        print("Sending blocks")
-        
         for block in blocks_2send:
-            print('Sending Block : ' ,  block.header)
             yield Block(header=str(block.header),
                         transactions=str(block.transactions))
-        print("done sending blocks")
     
     def GetHashBlocks(self, request, context):
         
@@ -47,7 +41,6 @@ class BlockDownloader(block_pb2_grpc.BlockDownloaderServicer):
             yield block_pb2.HashBlock(hash=str(block.header['hash']),
                                       data_hash=str(block.header['data_hash']),
                                       prev_hash=str(block.header['prev_hash']))
-            print("Done sending hash blockss")
             
     def DownloadBlock(self, request, context):
         print(f"Looking for block with id : {request.id}")

@@ -28,7 +28,7 @@ from blockchain.storage.database import Database
 from blockchain.storage.onchain import load_all_blocks, save_transaction
 from blockchain.trasanction import Transaction
 from clients.rpc import create_account, view_records, update_permissions,  \
-    get_block_data, insert_record, find_person, find_my_docs, Response
+    get_block_data, insert_record, find_person, find_my_docs, Response, book_appointment, get_user_appointments
 
 """
 *db_name* 
@@ -568,7 +568,7 @@ def update_records(headers):
 @method
 def view_health_records(headers):
     response = view_records(database, headers)
-    # print("Transction created : " , transaction.hash, ' -> ', transaction.data )
+    # print("Transaction created : " , transaction.hash, ' -> ', transaction.data )
     if isinstance(response, Response):
         transaction = response.transaction
         transaction_queue.append(transaction)
@@ -608,6 +608,35 @@ def search_person(headers):
     else: return Success({ 'success' : result})
 
 @method
+def create_appointment(headers):
+    result = book_appointment(database, headers)
+
+    if isinstance(result, Transaction):
+        transaction_queue.append(result)
+        broadcast_transction(result)
+    else:
+        return Success(result)
+        
+    return Success({ "success" : "appointment added" })
+
+@method
+def get_appointments(headers):
+    result = get_user_appointments(database, headers)
+    return Success({ "success" : result})
+
+@method
+def update_appointment(headers):
+    result = update_appointment(database, headers)
+
+    if isinstance(result, Transaction):
+        transaction_queue.append(result)
+        broadcast_transction(result)
+    else:
+        return Success(result)
+        
+    return Success({ "success" : "permission added" })
+
+@method
 def delete_account(headers):
     return
 
@@ -620,15 +649,18 @@ end of rpc intermediary methods
 # this only runs if the module was *not* imported
 if __name__ == '__main__':
     try:
+        # rpc server for Node to client comms
         jsonrpc_thread = threading.Thread(target=serve)
         jsonrpc_thread.start()
         
+        # grpc for Node to Node comms
         grpc_thread = threading.Thread(target=grpc_server, args=[chain])
         grpc_thread.start()
 
         network_monitor_thread = threading.Thread(target=network_monitor)
         network_monitor_thread.start()
 
+        # twisted for Node to Node comms of smaller messages
         twisted_server(server)
 
     except KeyboardInterrupt:
