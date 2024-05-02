@@ -28,7 +28,7 @@ from blockchain.storage.database import Database
 from blockchain.storage.onchain import load_all_blocks, save_transaction
 from blockchain.trasanction import Transaction
 from clients.rpc import create_account, view_records, update_permissions,  \
-    get_block_data, insert_record, find_person, find_my_docs, Response, book_appointment, get_user_appointments
+    get_block_data, insert_record, find_person, find_my_docs, Response, book_appointment, get_user_appointments, update_user_appointment
 
 """
 *db_name* 
@@ -417,7 +417,7 @@ class Server(DatagramProtocol):
             self.broadcast_message("chain-leader","leader-request", 1)
             return
 
-        print(f"Peers less than 0.5")
+        print("Peers less than 0.5")
                 
         return
     
@@ -590,6 +590,7 @@ def update_data_permissions(headers):
         
     return Success({ "success" : "permission added" })
 
+
 @method 
 def get_my_doctors(headers):
     result = find_my_docs(database, headers)
@@ -597,6 +598,7 @@ def get_my_doctors(headers):
         return Success({ 'success' : 'no users found'})
     else:
         return Success({ 'success' : result})
+
 
 @method
 def search_person(headers):
@@ -606,6 +608,7 @@ def search_person(headers):
         return Success({ 'error' : 'no user found'})
         
     else: return Success({ 'success' : result})
+
 
 @method
 def create_appointment(headers):
@@ -619,14 +622,16 @@ def create_appointment(headers):
         
     return Success({ "success" : "appointment added" })
 
+
 @method
 def get_appointments(headers):
     result = get_user_appointments(database, headers)
     return Success({ "success" : result})
 
+
 @method
 def update_appointment(headers):
-    result = update_appointment(database, headers)
+    result = update_user_appointment(database, headers)
 
     if isinstance(result, Transaction):
         transaction_queue.append(result)
@@ -635,6 +640,16 @@ def update_appointment(headers):
         return Success(result)
         
     return Success({ "success" : "permission added" })
+
+
+@method
+def account_history(headers):
+    return Success({ "success" : "history not yet available"})
+
+@method
+def temporary_permission(headers):
+    return Success({ 'success' : "permission added"})
+
 
 @method
 def delete_account(headers):

@@ -42,57 +42,62 @@ class Database:
         found_user = collection.find_one({ 'userid' : userid})
         return found_user
 
-    def get_user_appointments(self, user, date):
-        appointments = None
-        collection = self.database[user['user_type']]
-        user = collection.find_one({ 'userid' : user['userid']})
     
-        print('Appointments for user : ', user['appointments'])
-        try:
-            appointments = user['appointments']
+    def create_temporary_permission(self, perm_data):
+        collection = self.database['temp_permissions']
+        collection.insert_one({ 'perm' : perm_data})
+        return 
 
-            if date == "all":
-                ignore_ = True
-            else:
-                appointments = [app for app in appointments 
-                    if app['date'] == date]
-        except Exception as ex:
-            print(ex)
-            appointments = []
+    def get_temp_permissions(self, doctor, patient):
+        collection = self.database['temp_permissions']
+        return collection.find_one({ 'doctor' : doctor, 'patient' : patient})
+
+    def delete_temp_permission(self, doc, patient):
+        collection = self.database['temp_permissions']
+        collection.find_one_and_delete({ 'doctor' : doc, 'patient' : patient})
+        return
+
+
+    def get_user_appointments(self, user, date):
+
+        appointments = []
+
+        user_type = user['user_type']
+
+        collection = self.database['appointments']
+        if date == 'all':
+            appointments = collection.find({ user_type : user['userid']})
+        else:
+            appointments = collection.find({ user_type : user['userid']})
+        
+        appointments = [app for app in appointments if int(date) < int(app['date_key'])]
+        
+        for app in appointments:
+            app['_id'] = None
+
+        print("appointments : ", appointments)
 
         return appointments
 
+    def get_appointment(self, doctor, patient, date_key, time):
+        collection = self.database['appointments']
+        appointment = collection.find_one({ 'doctor' : doctor, 
+            'patient' : patient, 'date_key' : date_key, 'time' : time})
+
+        return appointment
+
+    def update_appointment(self, doctor, patient, date_key, time, approved):
+        appointment = collection.find_one_and_update({ 
+            'doctor' : doctor, 'patient' : patient, 
+            'date_key' : date_key, 'time' : time},
+             {  '$set' : {'approved' : approved}})
+        return 
 
     def save_appointment(self, data):
-        collection = self.database['patients']
-
-        patient = collection.find_one({ 'userid' : data['patient']})
-        patient_appointments = None
-        try:
-            patient_appointments = patient['appointments']
-            patient_appointments.append(data)
-        except Exception as ex:
-            print("Error (patient app) : ", ex)
-            patient_appointments = [data]
-
-        inserted_docs_patient = collection.find_one_and_update({ 'userid': data['patient']}, 
-            { '$set' : { 'appointments' : patient_appointments}})
-
-        
-        collection = self.database['doctor']
-        doctor_appointments = None
-
-        try:
-            doctor_appointments = doctor['appointments']
-            doctor_appointments.append(data)
-        except Exception as ex:
-            print("Error (doc app) : ", ex)
-            doctor_appointments = [data]
-        
-        inserted_docs_doctor =  collection.find_one_and_update({ 'userid': data['doctor']}, 
-            { '$set' : { 'appointments' : doctor_appointments}})
-
+        collection = self.database['appointments']
+        collection.insert(data)
         return
+
 
     def get_patient_records(self, userid, record_type):
         # get patient records from databases

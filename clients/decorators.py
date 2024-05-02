@@ -20,10 +20,22 @@ def authorised(func: Callable):
 
         database = args[0]
         patient = args[1]['patient']
+        doctor = None
 
-        patient_data = database.get_patient(patient)
+        try:
+            doctor = args[1]['doctor']
+        except KeyError:
+            patient_data = database.get_patient(patient)
         
         print('Patient Data : ', patient_data)
+
+
+        temp_permissions = database.get_temp_permissions(doctor, patient)
+        if temp_permissions is not None:
+            expiry = True
+            if expiry is False:
+                return func(*args, **kwargs)
+        
         
         can_view = []
         try:
@@ -39,7 +51,6 @@ def authorised(func: Callable):
         if func.__name__ == 'insert_record':
            
             #TODO change perm to use userid not pk
-            doctor = args[1]['doctor']
 
             doc_found = False
 

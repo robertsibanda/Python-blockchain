@@ -4,13 +4,13 @@ from blockchain.trasanction import Transaction
 from blockchain.blockchain import Chain
 from blockchain.block import Block
 from blockchain.security import create_hash_default
-
+from blockchain.storage import database
 
 def get_patient_records(db, patient):
     # retrieve patient records from database
     return
 
-def save_transaction(db, transaction: Transaction):
+def save_transaction(db: database.Database, transaction: Transaction):
 
     """
     save data that is inside a transaction
@@ -40,12 +40,30 @@ def save_transaction(db, transaction: Transaction):
     elif transaction.type == "appointment":
      
         db.save_appointment(transaction.data)
+
     elif transaction.type == 'log':
         pass
-    
-    return
 
+    elif transaction.type == 'appointment update':
+        
+        appointment_data = transaction.data
+        
+        appointments = db.get_user_appointments(user, 'all')
 
+        for appointment in appointments:
+            update = appointment_data['update']
+
+            if appointment['approver'] == appointment_data['userid']:
+                if update == 'delete':
+                    appointments = [app for app in appointments if app != appointment]
+                elif update == 'approve':
+                    appointment['approved'] = True
+                elif update == 'reject':
+                    appointment['approved'] = False
+                db.update_appointment(appointment)
+            else:
+                return { 'error' : 'User not allowed tp update'}
+        return
 
 def load_all_blocks(db, chain: Chain):
         # load previously saved block from the database
@@ -69,7 +87,7 @@ def load_all_blocks(db, chain: Chain):
                 expected_tr_hash = transaction['hash']
 
                 tr = Transaction(transaction['type'], transaction['data'],
-                    transaction['metadata'], transaction['hash'])
+                    transaction['metadata'])
                 
                 print(f"Comparing hashes {expected_tr_hash} \
                     and {create_hash_default(tr.data)}",

@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from typing import Optional
 from .security import verify_data, create_hash_default
 
 
@@ -7,7 +8,7 @@ class Transaction:
     type: str
     data: str
     metadata: str
-    hash: str
+    hash: str = field(init=False)
     
     def __post_init__(self):
         self.hash = create_hash_default(self.data)

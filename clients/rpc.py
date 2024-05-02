@@ -69,7 +69,7 @@ def update_permissions(db: database.Database, details) -> Transaction:
         transaction = Transaction(type="permission update", 
             data={'doctor' : doctor, 
             'patient' : patient_id, 'perm' : perm, 'perm_code' : perm_code }, 
-            metadata=str(datetime.datetime.today()), hash='')
+            metadata=str(datetime.datetime.today()))
             
         save_transaction(db, transaction)
 
@@ -112,8 +112,7 @@ def create_account(db: database.Database, details) -> Transaction:
 
     transction = Transaction(type="account init", 
         data={'public_key' : userdata['public_key'], 'userid' : person_id, 'user_type':  user_type}, 
-        metadata=['created account', str(datetime.datetime.today().date())], 
-        hash='')
+        metadata=['created account', str(datetime.datetime.today().date())])
     save_transaction(db, transction)
 
     return transction
@@ -146,7 +145,7 @@ def view_records(db: database.Database, details) -> Transaction:
     records = db.get_patient_records(patient, record_type)
 
     transaction = Transaction(type="log", data=records_data, 
-        metadata=['records view', str(datetime.datetime.today().date())], hash='')
+        metadata=['records view', str(datetime.datetime.today().date())])
     
     save_transaction(db, transaction)
     response = Response(transaction, records)
@@ -155,6 +154,8 @@ def view_records(db: database.Database, details) -> Transaction:
 
 def get_user_appointments(db : database.Database, details):
     #TODO get appointments for a certain date
+
+    print("appointments request  :" , details)
     user = {
         'userid' : details['userid'],
         'user_type'  : details['user_type']
@@ -163,8 +164,23 @@ def get_user_appointments(db : database.Database, details):
     return db.get_user_appointments(user, details['date'])
 
 
-def approve_appointment(db : database.Database, details):
-    return
+def update_user_appointment(db: database.Database, details):
+    appointment_data = {
+        'doctor' : details['doctor'],
+        'patient' : details['patient'],
+        'userid'  : details['userid'],
+        'user_type' : details['user_type'],
+        'date_key'  :details['date_key'],
+        'update' : details['update'],
+        'time' : details['time']
+    }
+
+    tr = Transaction('appointment update', appointment_data, 
+        str(datetime.datetime.today().date()))
+    save_transaction(db, transaction)
+
+    return tr
+
 
 def book_appointment(db: database.Database, details):
 
@@ -178,6 +194,9 @@ def book_appointment(db: database.Database, details):
     doctor_name = details['doctor_name']
     description = details['description']
     doctor_proff = details['doctor_proff']
+    date_key = details["date_key"]
+    patient_name = details["patient_name"]
+    patient_contact = details["patient_contact"]
     
     if creator == patient:
         approver = doctor
@@ -190,13 +209,17 @@ def book_appointment(db: database.Database, details):
         "doctor" : doctor,
         "time" : time,
         "date" : date,
+        "date_key" : date_key,
         "doctor_name" : doctor_name,
         "description" : description,
         "doctor_proff" : doctor_proff,
-        "approved" : False
+        "approved" : False,
+        "patient_name" : patient_name,
+        "patient_contact" : patient_contact
+        
     }
     
-    tr = Transaction('appointment', tr_data, str(datetime.datetime.today().date()), hash='')
+    tr = Transaction('appointment', tr_data, str(datetime.datetime.today().date()))
     save_transaction(db, tr)
     return tr
 
@@ -256,11 +279,14 @@ def insert_record(db: database.Database, details) -> Transaction:
     transaction  = Transaction(type="record", 
         data={ 'type' : record_type, 'data' : data_object},
         metadata={ 'patient' : patient, 'doctor' : doctor, 
-        'date': str(datetime.datetime.today().date())}, hash='')
+        'date': str(datetime.datetime.today().date())})
 
     save_transaction(db, transaction)
     return transaction
 
+
+def create_temporary_access(db: database.Database, details):
+    pass
 
 def find_my_docs(db : database.Database, details):
     # find doctors who can view or update my records
