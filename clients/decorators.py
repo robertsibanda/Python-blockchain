@@ -21,20 +21,23 @@ def authorised(func: Callable):
         database = args[0]
         patient = args[1]['patient']
         doctor = None
+        
+        patient_data = None
 
         try:
             doctor = args[1]['doctor']
+            print("Doctor : " , doctor)
         except KeyError:
             patient_data = database.get_patient(patient)
-        
-        print('Patient Data : ', patient_data)
-
-
+  
         temp_permissions = database.get_temp_permissions(doctor, patient)
         if temp_permissions is not None:
             expiry = True
             if expiry is False:
                 return func(*args, **kwargs)
+        
+        print("After temp perms")
+        print("patient data : ", patient_data)
         
         
         can_view = []
@@ -42,11 +45,15 @@ def authorised(func: Callable):
             can_view = patient_data['doctor_allowed_view']
         except:
            can_view = []
+           
+        print("Can view : " , can_view)
             
         try:
             can_update = patient_data['doctor_allowed_update']
         except:
             can_update = []
+            
+        print("Can update : " , can_update)
             
         if func.__name__ == 'insert_record':
            

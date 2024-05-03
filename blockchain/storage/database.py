@@ -59,7 +59,29 @@ class Database:
 
 
     def get_close_appointments(self, user, date):
-        return
+        appointments = []
+        
+        user_appointments = []
+        
+        user_type = user['user_type']
+
+        collection = self.database['appointments']
+        
+        if date == 'all':
+            appointments = collection.find({ user_type : user['userid']})
+            for app in appointments:
+                user_appointments.append(app)
+        else:
+            appointments = collection.find({ user_type : user['userid']})
+            user_appointments = [app for app in appointments if (int(date) - int(app['date_key'])) < 10]
+        
+        for app in user_appointments:
+            app['_id'] = None
+            
+
+        print("appointments 2 : ", user_appointments)
+
+        return user_appointments
         
     def get_user_appointments(self, user, date):
 
@@ -233,16 +255,13 @@ class Database:
 
 
     def get_patient(self, id):
-        collection = self.database['users']
+        collection = self.database['patients']
         return collection.find_one({ 'userid' : id})
 
 
-    def save_doctor(self, pk, userid):
+    def save_doctor(self, data):
         collection = self.database['doctor']
-        return collection.insert_one(
-            {'public_key' : pk,
-            'userid' : userid})
-
+        return collection.insert_one(data)
 
     def get_doctor(self, id):
         collection = self.database['doctor']
@@ -250,7 +269,7 @@ class Database:
 
 
     def update_permissions(self, userid, doctor, perm, perm_code):
-        collection = self.database["users"]
+        collection = self.database["patients"]
         patient = collection.find_one({'userid' : userid})
 
         perm_dir = f'doctor_allowed_{perm}'
@@ -345,5 +364,4 @@ class Database:
 
     def get_all_blocks(self):
         collection = self.database["blocks"]
-        
         return collection.find({})

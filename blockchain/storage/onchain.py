@@ -32,7 +32,7 @@ def save_transaction(db: database.Database, transaction: Transaction):
     
     elif transaction.type == 'account init':
         if data['user_type'] == 'doctor':
-            db.save_doctor(data['public_key'],data['userid'])
+            db.save_doctor(data)
 
         elif data['user_type'] == 'patient':
             db.save_patient(data['public_key'],data['userid'])

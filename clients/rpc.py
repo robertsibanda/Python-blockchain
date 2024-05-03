@@ -105,15 +105,24 @@ def create_account(db: database.Database, details) -> Transaction:
     if 'patient' in userdata.values():
         # set user account property for Patient
         user_type = 'patient'
+        
+         transction = Transaction(type="account init", 
+            data={'public_key' : userdata['public_key'],
+            'userid' : person_id, 'user_type':  user_type}, 
+            metadata=['created account', str(datetime.datetime.today().date())], hash='')
+        save_transaction(db, transction)
 
     if 'doctor' in userdata.values():
         # set user account property for doctor
         user_type = 'doctor'
 
-    transction = Transaction(type="account init", 
-        data={'public_key' : userdata['public_key'], 'userid' : person_id, 'user_type':  user_type}, 
-        metadata=['created account', str(datetime.datetime.today().date())], hash='')
-    save_transaction(db, transction)
+        transction = Transaction(type="account init", 
+            data={'public_key' : userdata['public_key'], 'fullname' : details['fullname'],
+            'contact' : details['contact'], 'userid' : person_id, 'bio' : details['bio'], 
+            'organisation' : details['organisation'], 'occupation' : details['occupation'],
+            'gender' : details['gender'], 'user_type':  user_type}, 
+            metadata=['created account', str(datetime.datetime.today().date())], hash='')
+        save_transaction(db, transction)
 
     return transction
 
@@ -151,6 +160,17 @@ def view_records(db: database.Database, details) -> Transaction:
     response = Response(transaction, records)
     return response
 
+
+def get_close_appointments(db : database.Database, details):
+    #TODO get appointments for a certain date
+
+    print("appointments request  :" , details)
+    user = {
+        'userid' : details['userid'],
+        'user_type'  : details['user_type']
+    }
+    
+    return db.get_close_appointments(user, details['date'])
 
 def get_user_appointments(db : database.Database, details):
     #TODO get appointments for a certain date

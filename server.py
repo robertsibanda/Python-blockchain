@@ -28,7 +28,7 @@ from blockchain.storage.database import Database
 from blockchain.storage.onchain import load_all_blocks, save_transaction
 from blockchain.trasanction import Transaction
 from clients.rpc import create_account, view_records, update_permissions,  \
-    get_block_data, insert_record, find_person, find_my_docs, Response, book_appointment, get_user_appointments, update_user_appointment
+    get_block_data, insert_record, find_person, find_my_docs, Response, book_appointment, get_user_appointments, update_user_appointment, get_close_appointments
 
 """
 *db_name* 
@@ -628,6 +628,10 @@ def get_appointments(headers):
     result = get_user_appointments(database, headers)
     return Success({ "success" : result})
 
+@method
+def get_upcoming_appointments(headers):
+    result = get_close_appointments(database, headers)
+    return Success({ "success" : result})
 
 @method
 def update_appointment(headers):
