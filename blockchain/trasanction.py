@@ -8,7 +8,7 @@ class Transaction:
     type: str
     data: str
     metadata: str
-    hash: str = field(init=False)
+    hash: str
     
     def __post_init__(self):
         self.hash = create_hash_default(self.data)

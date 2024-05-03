@@ -639,7 +639,7 @@ def update_appointment(headers):
     else:
         return Success(result)
         
-    return Success({ "success" : "permission added" })
+    return Success({ "success" : "appointment updated" })
 
 
 @method

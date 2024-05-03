@@ -112,7 +112,7 @@ def create_account(db: database.Database, details) -> Transaction:
 
     transction = Transaction(type="account init", 
         data={'public_key' : userdata['public_key'], 'userid' : person_id, 'user_type':  user_type}, 
-        metadata=['created account', str(datetime.datetime.today().date())])
+        metadata=['created account', str(datetime.datetime.today().date())], hash='')
     save_transaction(db, transction)
 
     return transction
@@ -145,7 +145,7 @@ def view_records(db: database.Database, details) -> Transaction:
     records = db.get_patient_records(patient, record_type)
 
     transaction = Transaction(type="log", data=records_data, 
-        metadata=['records view', str(datetime.datetime.today().date())])
+        metadata=['records view', str(datetime.datetime.today().date())], hash='')
     
     save_transaction(db, transaction)
     response = Response(transaction, records)
@@ -168,16 +168,14 @@ def update_user_appointment(db: database.Database, details):
     appointment_data = {
         'doctor' : details['doctor'],
         'patient' : details['patient'],
-        'userid'  : details['userid'],
-        'user_type' : details['user_type'],
-        'date_key'  :details['date_key'],
+        'date'  :details['date'],
         'update' : details['update'],
         'time' : details['time']
     }
 
     tr = Transaction('appointment update', appointment_data, 
-        str(datetime.datetime.today().date()))
-    save_transaction(db, transaction)
+        str(datetime.datetime.today().date()), hash='')
+    save_transaction(db, tr)
 
     return tr
 
@@ -214,12 +212,13 @@ def book_appointment(db: database.Database, details):
         "description" : description,
         "doctor_proff" : doctor_proff,
         "approved" : False,
+        "rejected" : False,
         "patient_name" : patient_name,
         "patient_contact" : patient_contact
         
     }
     
-    tr = Transaction('appointment', tr_data, str(datetime.datetime.today().date()))
+    tr = Transaction('appointment', tr_data, str(datetime.datetime.today().date()), hash='')
     save_transaction(db, tr)
     return tr
 
@@ -279,7 +278,7 @@ def insert_record(db: database.Database, details) -> Transaction:
     transaction  = Transaction(type="record", 
         data={ 'type' : record_type, 'data' : data_object},
         metadata={ 'patient' : patient, 'doctor' : doctor, 
-        'date': str(datetime.datetime.today().date())})
+        'date': str(datetime.datetime.today().date())}, hash='')
 
     save_transaction(db, transaction)
     return transaction

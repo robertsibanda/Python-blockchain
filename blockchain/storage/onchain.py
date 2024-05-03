@@ -17,7 +17,7 @@ def save_transaction(db: database.Database, transaction: Transaction):
     used for creating database objects for new nodes
     """
 
-    data = transaction.data
+    data = dict(transaction.data)
 
     if transaction.type == "record":
 
@@ -48,21 +48,30 @@ def save_transaction(db: database.Database, transaction: Transaction):
         
         appointment_data = transaction.data
         
+        user = {
+            'user_type' : 'doctor',
+            'userid' : data['doctor']
+        }
         appointments = db.get_user_appointments(user, 'all')
-
-        for appointment in appointments:
-            update = appointment_data['update']
-
-            if appointment['approver'] == appointment_data['userid']:
+        required_appointments = [app for app in appointments
+            if data['date'] == app['date'] and app['time'] == data['time']
+                and app['patient'] == data['patient']]
+                
+        for appointment in required_appointments:
+            print('Handling found : ', appointment)
+            update = data['update']
+            if appointment['approver'] == appointment_data['doctor']:
                 if update == 'delete':
                     appointments = [app for app in appointments if app != appointment]
                 elif update == 'approve':
                     appointment['approved'] = True
+                    appointment['rejected'] = False
                 elif update == 'reject':
                     appointment['approved'] = False
+                    appointment['rejected'] = True
                 db.update_appointment(appointment)
             else:
-                return { 'error' : 'User not allowed tp update'}
+                return { 'error' : 'User not allowed to update'}
         return
 
 def load_all_blocks(db, chain: Chain):
@@ -87,7 +96,7 @@ def load_all_blocks(db, chain: Chain):
                 expected_tr_hash = transaction['hash']
 
                 tr = Transaction(transaction['type'], transaction['data'],
-                    transaction['metadata'])
+                    transaction['metadata'], hash='')
                 
                 print(f"Comparing hashes {expected_tr_hash} \
                     and {create_hash_default(tr.data)}",

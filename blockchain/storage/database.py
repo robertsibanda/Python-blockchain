@@ -58,26 +58,34 @@ class Database:
         return
 
 
+    def get_close_appointments(self, user, date):
+        return
+        
     def get_user_appointments(self, user, date):
 
         appointments = []
-
+        
+        user_appointments = []
+        
         user_type = user['user_type']
 
         collection = self.database['appointments']
+        
         if date == 'all':
             appointments = collection.find({ user_type : user['userid']})
+            for app in appointments:
+                user_appointments.append(app)
         else:
             appointments = collection.find({ user_type : user['userid']})
+            user_appointments = [app for app in appointments if int(date) == int(app['date_key'])]
         
-        appointments = [app for app in appointments if int(date) < int(app['date_key'])]
-        
-        for app in appointments:
+        for app in user_appointments:
             app['_id'] = None
+            
 
-        print("appointments : ", appointments)
+        print("appointments 2 : ", user_appointments)
 
-        return appointments
+        return user_appointments
 
     def get_appointment(self, doctor, patient, date_key, time):
         collection = self.database['appointments']
@@ -86,11 +94,12 @@ class Database:
 
         return appointment
 
-    def update_appointment(self, doctor, patient, date_key, time, approved):
+    def update_appointment(self, appointment):
+        collection  = self.database['appointments']
         appointment = collection.find_one_and_update({ 
-            'doctor' : doctor, 'patient' : patient, 
-            'date_key' : date_key, 'time' : time},
-             {  '$set' : {'approved' : approved}})
+            'doctor' : appointment['doctor'], 'patient' : appointment['patient'], 
+            'date' : appointment['date'], 'time' : appointment['time']},
+             {  '$set' : {'approved' : appointment['approved'], 'rejected' : appointment['rejected']}})
         return 
 
     def save_appointment(self, data):
