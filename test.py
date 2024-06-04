@@ -7,13 +7,26 @@ database = client['ehr_chain']
 
 collection = database['users']
 
-person = collection.find_one({'userid' : 'c4ace9bb-50f6-458a-aea8-2fd0a3be5036'})
+people = collection.find(
+    {'userid': 'cdd36b47-524d-4f04-9e76-2b94e09ad5d6'})
 
-print(f'Found person: {person}')
-public_key = rsa.PublicKey.load_pkcs1_openssl_pem(person['public_key'])
+collection = database['patients']
+patients = collection.find({})
 
-message = 'c4ace9bb-50f6-458a-aea8-2fd0a3be5036'
+patients = [x for x in patients]
 
-signature = 'LWepOQHsTvyPIUKdx6XMkttrPOC5NDS/bUPbQr5Dgu/MTV3RuqsTT+o8fb2qUMugHUBoHS7uk2LTKUlbhdmgNvVHxwypbxAqbpv0U2OsaL23KZriNfh79k9LIf6U0G4hD6PmItKh2UCNB6XQ80dhDMzFWAshEnPGZ252pvLN9DM='
+doctor = "58102008-32b5-47cf-9136-010eb5c1d094"
 
-rsa.verify(signature, message.encode(), public_key)
+for person in people:
+    user_data = person
+
+    print(user_data['userid'])
+
+    single_patien = [p for p in patients if p['userid'] == user_data['userid']]
+
+    patient_index = patients.index(single_patien[0])
+
+    patient_data = patients[patient_index]
+
+    user_data['can_update'] = doctor in patient_data['doctor_allowed_update']
+    print(f"Doctor {doctor} allowed update {user_data['can_update']}")

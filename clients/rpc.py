@@ -16,14 +16,15 @@ from blockchain.storage.object.people import HealthProfessional, Patient, Person
 from .decorators import authenticated, authorised, broadcast
 
 
-# TODO make methods save only reference to blockchain data 
+# TODO make methods save only reference to blockchain data
 # TODO -> transactionid and blockid not all record data
 
 
 @dataclass
 class Response:
     transaction: Transaction
-    response : list
+    response: list
+
 
 def get_block_data(chain: blockchain.Chain, block_number):
     # get the transactions and header of block using block_id
@@ -43,7 +44,7 @@ def is_chain_valid(chain: blockchain.Chain):
 @authenticated
 def update_permissions(db: database.Database, details) -> Transaction:
 
-    print('Permission request : ' , details)
+    print('Permission request : ', details)
     perms_data = details
 
     patient_id = details['userid']
@@ -53,8 +54,6 @@ def update_permissions(db: database.Database, details) -> Transaction:
     perm = details['perm']
 
     perm_code = details['perm-code']
-
-  
 
     verified_data = True
     if verified_data:
@@ -66,23 +65,25 @@ def update_permissions(db: database.Database, details) -> Transaction:
         perms_data
             [...,doctor_x, doctor_y]
         """
-        transaction = Transaction(type="permission update", 
-            data={'doctor' : doctor, 
-            'patient' : patient_id, 'perm' : perm, 'perm_code' : perm_code }, 
-            metadata=str(datetime.datetime.today()))
-            
+        transaction = Transaction(type_="permission update",
+                                  hash='',
+                                  data={'doctor': doctor,
+                                        'patient': patient_id, 'perm': perm, 'perm_code': perm_code},
+                                  metadata=str(datetime.datetime.today()))
+
         save_transaction(db, transaction)
 
         return transaction
     else:
-        return { 'failed' : 'data cannot be verified'}
+        return {'failed': 'data cannot be verified'}
+
 
 def create_account(db: database.Database, details) -> Transaction:
-    
-    userdata  = details
+
+    userdata = details
 
     user_type = None
-    
+
     person_id = uuid4().__str__()
 
     userdata['userid'] = person_id
@@ -97,34 +98,35 @@ def create_account(db: database.Database, details) -> Transaction:
                 person = db.save_person(userdata)
             else:
                 userid_conflict = True
-                return { 'failed' : 'Server error\nTry again'}
+                return {'failed': 'Server error\nTry again'}
 
         else:
-            return { 'failed' : 'user already exists'}
+            return {'failed': 'user already exists'}
 
     if 'patient' in userdata.values():
         # set user account property for Patient
         user_type = 'patient'
-        
-         transction = Transaction(type="account init", 
-            data={'public_key' : userdata['public_key'],
-            'userid' : person_id, 'user_type':  user_type}, 
-            metadata=['created account', str(datetime.datetime.today().date())], hash='')
+
+        transction = Transaction(type_="account init",
+                                 data={'public_key': userdata['public_key'],
+                                       'userid': person_id, 'user_type':  user_type},
+                                 metadata=['created account', str(datetime.datetime.today().date())], hash='')
         save_transaction(db, transction)
 
     if 'doctor' in userdata.values():
         # set user account property for doctor
         user_type = 'doctor'
 
-        transction = Transaction(type="account init", 
-            data={'public_key' : userdata['public_key'], 'fullname' : details['fullname'],
-            'contact' : details['contact'], 'userid' : person_id, 'bio' : details['bio'], 
-            'organisation' : details['organisation'], 'occupation' : details['occupation'],
-            'gender' : details['gender'], 'user_type':  user_type}, 
-            metadata=['created account', str(datetime.datetime.today().date())], hash='')
+        transction = Transaction(type_="account init",
+                                 data={'public_key': userdata['public_key'], 'fullname': details['fullname'],
+                                       'contact': details['contact'], 'userid': person_id, 'bio': details['bio'],
+                                       'organisation': details['organisation'], 'occupation': details['occupation'],
+                                       'gender': details['gender'], 'user_type':  user_type},
+                                 metadata=['created account', str(datetime.datetime.today().date())], hash='')
         save_transaction(db, transction)
 
     return transction
+
 
 @authenticated
 def find_person(db: database.Database, details):
@@ -133,68 +135,70 @@ def find_person(db: database.Database, details):
     user_type = details['user_type']
 
     users = db.search_user(search_string, user_type, details['userid'])
-    
+
     return users
 
 
 @authorised
 def view_records(db: database.Database, details) -> Transaction:
     # view records of a patient
-    
+
     try:
         if details['error']:
             return details
     except KeyError:
-        ingore=  True
+        ingore = True
 
     patient = details['patient']
-    record_type=  details['record']
+    record_type = details['record']
     records_data = details
 
     records = db.get_patient_records(patient, record_type)
 
-    transaction = Transaction(type="log", data=records_data, 
-        metadata=['records view', str(datetime.datetime.today().date())], hash='')
-    
+    transaction = Transaction(type_="log", data=records_data,
+                              metadata=['records view', str(datetime.datetime.today().date())], hash='')
+
     save_transaction(db, transaction)
     response = Response(transaction, records)
+    print(f"Found records : {records}")
     return response
 
 
-def get_close_appointments(db : database.Database, details):
-    #TODO get appointments for a certain date
+def get_close_appointments(db: database.Database, details):
+    # TODO get appointments for a certain date
 
-    print("appointments request  :" , details)
+    print("appointments request  :", details)
     user = {
-        'userid' : details['userid'],
-        'user_type'  : details['user_type']
+        'userid': details['userid'],
+        'user_type': details['user_type']
     }
-    
+
     return db.get_close_appointments(user, details['date'])
 
-def get_user_appointments(db : database.Database, details):
-    #TODO get appointments for a certain date
 
-    print("appointments request  :" , details)
+def get_user_appointments(db: database.Database, details):
+    # TODO get appointments for a certain date
+
+    print("appointments request  :", details)
     user = {
-        'userid' : details['userid'],
-        'user_type'  : details['user_type']
+        'userid': details['userid'],
+        'user_type': details['user_type']
     }
-    
+
     return db.get_user_appointments(user, details['date'])
 
 
 def update_user_appointment(db: database.Database, details):
     appointment_data = {
-        'doctor' : details['doctor'],
-        'patient' : details['patient'],
-        'date'  :details['date'],
-        'update' : details['update'],
-        'time' : details['time']
+        'doctor': details['doctor'],
+        'patient': details['patient'],
+        'date': details['date'],
+        'update': details['update'],
+        'time': details['time']
     }
 
-    tr = Transaction('appointment update', appointment_data, 
-        str(datetime.datetime.today().date()), hash='')
+    tr = Transaction('appointment update', appointment_data,
+                     str(datetime.datetime.today().date()), hash='')
     save_transaction(db, tr)
 
     return tr
@@ -215,32 +219,34 @@ def book_appointment(db: database.Database, details):
     date_key = details["date_key"]
     patient_name = details["patient_name"]
     patient_contact = details["patient_contact"]
-    
+
     if creator == patient:
         approver = doctor
     else:
         approver = patient
 
     tr_data = {
-        "approver" : approver,
-        "patient" : patient,
-        "doctor" : doctor,
-        "time" : time,
-        "date" : date,
-        "date_key" : date_key,
-        "doctor_name" : doctor_name,
-        "description" : description,
-        "doctor_proff" : doctor_proff,
-        "approved" : False,
-        "rejected" : False,
-        "patient_name" : patient_name,
-        "patient_contact" : patient_contact
-        
+        "approver": approver,
+        "patient": patient,
+        "doctor": doctor,
+        "time": time,
+        "date": date,
+        "date_key": date_key,
+        "doctor_name": doctor_name,
+        "description": description,
+        "doctor_proff": doctor_proff,
+        "approved": False,
+        "rejected": False,
+        "patient_name": patient_name,
+        "patient_contact": patient_contact
+
     }
-    
-    tr = Transaction('appointment', tr_data, str(datetime.datetime.today().date()), hash='')
+
+    tr = Transaction('appointment', tr_data, str(
+        datetime.datetime.today().date()), hash='')
     save_transaction(db, tr)
     return tr
+
 
 @authorised
 def insert_record(db: database.Database, details) -> Transaction:
@@ -249,56 +255,56 @@ def insert_record(db: database.Database, details) -> Transaction:
         if details['error']:
             return details
     except KeyError:
-        ingore=  True
+        ingore = True
 
     print("Record data : ", details)
     record_type = details['type']
-    
+
     data_object = None
-    
+
     doctor = details['doctor']
     patient = details['patient']
-    
+
     if record_type == "notes":
         data_object = {
-            'content' : details['content'],
-            'date' : details['date'],
+            'content': details['content'],
+            'date': details['date'],
             'author': details['author'],
             'doctor': doctor
-            }
+        }
     elif record_type == "test":
         data_object = {
-            'test' : details['test'],
-            'test_code' : details['test_code'],
+            'test': details['test'],
+            'test_code': details['test_code'],
             'result': details['result'],
-            'result_code' : details['result_code'],
-            'date' : details['date'],
-            'doctor' : doctor
+            'result_code': details['result_code'],
+            'date': details['date'],
+            'doctor': doctor
         }
 
     elif record_type == "allege":
         data_object = {
-            'allege' : details['allege'],
-            'note' : details['note'],
-            'reaction' : details['reaction'],
-            'date' : details['date'],
-            'doctor' : doctor
+            'allege': details['allege'],
+            'note': details['note'],
+            'reaction': details['reaction'],
+            'date': details['date'],
+            'doctor': doctor
         }
 
     elif record_type == "prescription":
         data_object = {
-            'medicine_name' : details['medicine_name'],
-            'qty' : details['qty'],
-            'note' : details['note'],
-            'date' : details['date'],
-            'doctor' : doctor,
-            'author' : details['author']
+            'medicine_name': details['medicine_name'],
+            'qty': details['qty'],
+            'note': details['note'],
+            'date': details['date'],
+            'doctor': doctor,
+            'author': details['author']
         }
 
-    transaction  = Transaction(type="record", 
-        data={ 'type' : record_type, 'data' : data_object},
-        metadata={ 'patient' : patient, 'doctor' : doctor, 
-        'date': str(datetime.datetime.today().date())}, hash='')
+    transaction = Transaction(type_="record",
+                              data={'type': record_type, 'data': data_object},
+                              metadata={'patient': patient, 'doctor': doctor,
+                                        'date': str(datetime.datetime.today().date())}, hash='')
 
     save_transaction(db, transaction)
     return transaction
@@ -307,7 +313,8 @@ def insert_record(db: database.Database, details) -> Transaction:
 def create_temporary_access(db: database.Database, details):
     pass
 
-def find_my_docs(db : database.Database, details):
+
+def find_my_docs(db: database.Database, details):
     # find doctors who can view or update my records
     userid = details['userid']
 
