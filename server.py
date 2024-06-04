@@ -153,6 +153,8 @@ class Server(DatagramProtocol):
                 """
 
                 recvd_peers = data[1].split('::::')
+                for p in recvd_peers:
+                    print(f"Peer {p}")
 
                 new_node = None
 
@@ -508,7 +510,9 @@ def network_monitor():
 
         global network_leader, next_network_leader, last_block_time
         MAX_TIME = 100
-        MAX_TRANSACTIONS = 50
+        MAX_TRANSACTIONS = 5
+
+        print(f"\nNetwork leader {network_leader}")
 
         if last_block_time == None:
             last_block_time = datetime.datetime.today()
@@ -526,6 +530,7 @@ def network_monitor():
                 """
                 # do not close the block
                 reason = 'time or transaction_queue size'
+                print(f"Tansaction queue : {transaction_queue} - > {reason}")
                 # print(reason)
             else:
                 if len(transaction_queue) > 1:
@@ -545,11 +550,15 @@ def network_monitor():
 
                     network_leader = False
                     network_leader = next_network_leader
+
+                    if network_leader == None:
+                        network_leader = True
         else:
             reason = 'wait for your chance'
+            print(f"Tansaction queue : {transaction_queue} - > {reason}")
             # print(reason)
 
-        time.sleep(1)
+        time.sleep(0.5)
 
 
 """
@@ -565,10 +574,11 @@ def signup(headers):
 
     if isinstance(result, Transaction):
         transaction_queue.append(result)
-        if broadcast_transction(result):
-            return Success({"success": result.data['userid']})
+        broadcast_transction(result)
     else:
         return Success(result)
+    
+    return Success({"success": result.data['userid']})
     print(transaction_queue)
 
 

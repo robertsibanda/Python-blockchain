@@ -20,7 +20,7 @@ class Transaction:
         self.hash = create_hash_default(self.data)
 
     def _from_dict(self, data: dict):
-        self.type = data['type']
+        self.type_ = data['type_']
         self.data = data['data']
         self.metadata = data['metadata']
         self.hash = create_hash_default(self.data)
