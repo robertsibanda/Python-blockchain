@@ -3,32 +3,25 @@ import threading
 import time
 import datetime
 import socket
-from concurrent import futures
 from random import randint
-from dataclasses import asdict, astuple
+from dataclasses import asdict
 
-import grpc
 import rsa
-from jsonrpcserver import serve, method, Success
-from twisted.internet import reactor
+from jsonrpcserver import serve, method
 from twisted.internet.protocol import DatagramProtocol
 
-import block_pb2_grpc
 from _grpc_client_helper import ChainValidator
-from _grpc_server_helper import BlockDownloader
-from _server_helper import process_peer_chain_request, new_node_regiser, \
+from _server_helper import new_node_regiser, \
     process_close_block, grpc_server, twisted_server
 
 from blockchain.block import Block
 from blockchain.blockchain import Chain
-from blockchain.peer import Peer, peer_exists, save_peer
+from blockchain.peer import Peer, peer_exists
 from blockchain.security import verify_data, encrypt_data
 from blockchain.security.Identity import Identity
 from blockchain.storage.database import Database
 from blockchain.storage.onchain import load_all_blocks, save_transaction
 from blockchain.trasanction import Transaction
-from clients.rpc import create_account, view_records, update_permissions,  \
-    get_block_data, insert_record, find_person, find_my_docs, Response, book_appointment, get_user_appointments, update_user_appointment, get_close_appointments
 
 """
 *db_name* 
@@ -565,132 +558,10 @@ def network_monitor():
 begining of jsonrpc intermediary methods
 """
 
-
 @method
-def signup(headers):
-    print("Request recieved : ", headers)
-
-    result = create_account(database, headers)
-
-    if isinstance(result, Transaction):
-        transaction_queue.append(result)
-        broadcast_transction(result)
-    else:
-        return Success(result)
-    
-    return Success({"success": result.data['userid']})
-    print(transaction_queue)
-
-
-@method
-def update_records(headers):
-    result = insert_record(database, headers)
-
-    if isinstance(result, Transaction):
-        transaction_queue.append(result)
-        broadcast_transction(result)
-    else:
-        return Success(result)
-
-    return Success({"success": "record added"})
-
-
-@method
-def view_health_records(headers):
-    response = view_records(database, headers)
-    if isinstance(response, Response):
-        transaction = response.transaction
-        transaction_queue.append(transaction)
-        broadcast_transction(transaction)
-        return Success({"success": response.response})
-    else:
-        return Success(response)
-
-
-@method
-def update_data_permissions(headers):
-    result = update_permissions(database, headers)
-
-    if isinstance(result, Transaction):
-        transaction_queue.append(result)
-        broadcast_transction(result)
-    else:
-        return Success(result)
-
-    return Success({"success": "permission added"})
-
-
-@method
-def get_my_doctors(headers):
-    result = find_my_docs(database, headers)
-    if len(result) == 0:
-        return Success({'success': 'no users found'})
-    else:
-        return Success({'success': result})
-
-
-@method
-def search_person(headers):
-    result = find_person(database, headers)
-
-    if len(result) == 0:
-        return Success({'error': 'no user found'})
-
-    else:
-        return Success({'success': result})
-
-
-@method
-def create_appointment(headers):
-    result = book_appointment(database, headers)
-
-    if isinstance(result, Transaction):
-        transaction_queue.append(result)
-        broadcast_transction(result)
-    else:
-        return Success(result)
-
-    return Success({"success": "appointment added"})
-
-
-@method
-def get_appointments(headers):
-    result = get_user_appointments(database, headers)
-    return Success({"success": result})
-
-
-@method
-def get_upcoming_appointments(headers):
-    result = get_close_appointments(database, headers)
-    return Success({"success": result})
-
-
-@method
-def update_appointment(headers):
-    result = update_user_appointment(database, headers)
-
-    if isinstance(result, Transaction):
-        transaction_queue.append(result)
-        broadcast_transction(result)
-    else:
-        return Success(result)
-
-    return Success({"success": "appointment updated"})
-
-
-@method
-def account_history(headers):
-    return Success({"success": "history not yet available"})
-
-
-@method
-def temporary_permission(headers):
-    return Success({'success': "permission added"})
-
-
-@method
-def delete_account(headers):
+def transact(headers):
     return
+
 
 
 """
