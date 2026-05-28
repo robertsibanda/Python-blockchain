@@ -6,7 +6,7 @@ from uuid import uuid4
 import rsa
 
 from blockchain import blockchain
-from blockchain.trasanction import Transaction
+from blockchain.transaction import Transaction
 from blockchain.security import verify_data
 from blockchain.storage import database
 from blockchain.storage.onchain import save_transaction
@@ -107,25 +107,25 @@ def create_account(db: database.Database, details) -> Transaction:
         # set user account property for Patient
         user_type = 'patient'
 
-        transction = Transaction(type_="account init",
-                                 data={'public_key': userdata['public_key'],
-                                       'userid': person_id, 'user_type':  user_type},
-                                 metadata=['created account', str(datetime.datetime.today().date())], hash='')
-        save_transaction(db, transction)
+        transaction = Transaction(type_="account init",
+                                  data={'public_key': userdata['public_key'],
+                                        'userid': person_id, 'user_type':  user_type},
+                                  metadata=['created account', str(datetime.datetime.today().date())], hash='')
+        save_transaction(db, transaction)
 
     if 'doctor' in userdata.values():
         # set user account property for doctor
         user_type = 'doctor'
 
-        transction = Transaction(type_="account init",
-                                 data={'public_key': userdata['public_key'], 'fullname': details['fullname'],
-                                       'contact': details['contact'], 'userid': person_id, 'bio': details['bio'],
-                                       'organisation': details['organisation'], 'occupation': details['occupation'],
-                                       'gender': details['gender'], 'user_type':  user_type},
-                                 metadata=['created account', str(datetime.datetime.today().date())], hash='')
-        save_transaction(db, transction)
+        transaction = Transaction(type_="account init",
+                                  data={'public_key': userdata['public_key'], 'fullname': details['fullname'],
+                                        'contact': details['contact'], 'userid': person_id, 'bio': details['bio'],
+                                        'organisation': details['organisation'], 'occupation': details['occupation'],
+                                        'gender': details['gender'], 'user_type':  user_type},
+                                  metadata=['created account', str(datetime.datetime.today().date())], hash='')
+        save_transaction(db, transaction)
 
-    return transction
+    return transaction
 
 
 @authenticated

@@ -11,10 +11,10 @@ def load_from_database() -> blockchain.Chain:
     return chain
 
 
-def create_new_block(transction_data):
+def create_new_block(transaction_data):
     """
     add new block with first transaction
-    :param transction_data: first transaction
+    :param transaction_data: first transaction
     :return: new block id
     """
     pass

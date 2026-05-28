@@ -1,3 +1,5 @@
+import base64
+import json
 import sys
 import threading
 import time
@@ -11,7 +13,7 @@ from jsonrpcserver import serve, method
 from twisted.internet.protocol import DatagramProtocol
 
 from _grpc_client_helper import ChainValidator
-from _server_helper import new_node_regiser, \
+from _server_helper import new_node_register, \
     process_close_block, grpc_server, twisted_server
 
 from blockchain.block import Block
@@ -21,7 +23,7 @@ from blockchain.security import verify_data, encrypt_data
 from blockchain.security.Identity import Identity
 from blockchain.storage.database import Database
 from blockchain.storage.onchain import load_all_blocks, save_transaction
-from blockchain.trasanction import Transaction
+from blockchain.transaction import Transaction
 
 """
 *db_name* 
@@ -111,11 +113,12 @@ class Server(DatagramProtocol):
 
     def startProtocol(self):
         """initialize the connection"""
+        pk_pem = identity.public_key.save_pkcs1("PEM").decode('utf-8')
         node_identity = {"status": "ready",
-                         "pk": identity.public_key, "name": self.my_name}
+                         "pk": pk_pem, "name": self.my_name}
 
         # send message to node_list_server to get peers
-        self.transport.write(str(node_identity).encode('utf-8'), self.server)
+        self.transport.write(json.dumps(node_identity).encode('utf-8'), self.server)
 
     def datagramReceived(self, datagram: bytes, addr):
 
@@ -140,7 +143,7 @@ class Server(DatagramProtocol):
                 return
 
             if data[0] == 'peers':
-                print(f"Data recieved from node-list-srver {data}")
+                print(f"Data received from node-list-server {data}")
                 """
                 if node was already running update list of peers
                 """
@@ -152,8 +155,9 @@ class Server(DatagramProtocol):
                 new_node = None
 
                 for peer in recvd_peers:
-
-                    peer_recvd = eval(peer)
+                    if not peer.strip():
+                        continue
+                    peer_recvd = json.loads(peer)
 
                     new_node = Peer(peer_recvd["address"],
                                     peer_recvd["public_key"], peer_recvd["name"])
@@ -215,7 +219,7 @@ class Server(DatagramProtocol):
                     try:
                         verified_data = verify_data(
                             recvd_data[1].encode('utf-8'),
-                            eval(recvd_data[0]),
+                            base64.b64decode(recvd_data[0]),
                             rsa.PublicKey.load_pkcs1(peer.pk))
                     except rsa.VerificationError:
                         continue
@@ -234,19 +238,19 @@ class Server(DatagramProtocol):
 
             else:
                 print('Signing peer : ', signing_peer.address)
-                # print('recieved data : ', recvd_data)
+                # print('received data : ', recvd_data)
 
                 verified_data = verify_data(
                     recvd_data[1].encode('utf-8'),
-                    eval(recvd_data[0]),
+                    base64.b64decode(recvd_data[0]),
                     rsa.PublicKey.load_pkcs1(signing_peer.pk))
 
             if verified_data:
-                print(f"Data recvd from peer {eval(recvd_data[1])}")
-                # print(f"All recieved data : {recvd_data}")
+                print(f"Data received from peer {recvd_data[1]}")
+                # print(f"All received data : {recvd_data}")
 
                 # recvd_data is list [str, dict]
-                data_request = eval(recvd_data[1])
+                data_request = json.loads(recvd_data[1])
                 # print(f"type of recvd data  : {type(data_request)}")
 
                 if data_request[0] == 'register':
@@ -258,7 +262,7 @@ class Server(DatagramProtocol):
 
                     print(f"New node chain props : {new_node_chain_props}")
 
-                    response = new_node_regiser(
+                    response = new_node_register(
                         new_node_chain_props, chain, self.transport, signing_peer)
 
                     self.send_message(signing_peer, response,
@@ -355,10 +359,9 @@ class Server(DatagramProtocol):
                 if data_request[0] == 'leader-response':
                     # leader-response, {leader: True}
 
-                    pos_chain_leader = identity.derypt_data(data_request[1])
-
-                    chain_leader_data = eval(
-                        identity.derypt_data(data_request[1]))
+                    encrypted_payload = base64.b64decode(data_request[1][1])
+                    decrypted_str = identity.decrypt_data(encrypted_payload)
+                    chain_leader_data = json.loads(decrypted_str)
 
                     if chain_leader_data["leader"] is True:
 
@@ -373,10 +376,11 @@ class Server(DatagramProtocol):
                     return
 
                 if data_request[0] == 'register-response':
-                    # decrypt the recvd data
-                    # decrypted data {respone : x}
-                    decrypted_response = eval(
-                        identity.derypt_data(data_request[1]))
+                    # decrypt the received data
+                    # decrypted data {response : x}
+                    encrypted_payload = base64.b64decode(data_request[1][1])
+                    decrypted_str = identity.decrypt_data(encrypted_payload)
+                    decrypted_response = json.loads(decrypted_str)
 
                     if decrypted_response["response"] == "chains-equal":
                         self.chains_to_validate[signing_peer.name] = 0
@@ -419,8 +423,8 @@ class Server(DatagramProtocol):
                 self.chains_to_validate = {}
                 return
 
-            chian_validator = ChainValidator(self.peers, chain, database)
-            chian_validator.get_all_chains_tp()
+            chain_validator = ChainValidator(self.peers, chain, database)
+            chain_validator.get_all_chains_tp()
             self.chains_to_validate = {}
             self.broadcast_message("chain-leader", "leader-request", 1)
             return
@@ -441,15 +445,20 @@ class Server(DatagramProtocol):
         return True
 
     def send_message(self, peer:  Peer, message, message_label, e):
+        import base64
+
         message_to_send = [message_label, message]
 
         if e == 1:
-            message_to_send = encrypt_data(
+            encrypted = encrypt_data(
                 rsa.PublicKey.load_pkcs1(peer.pk), message)
+            message_to_send = [message_label, base64.b64encode(encrypted).decode('utf-8')]
 
         unsinged_message = [message_label, message_to_send]
         signed_message = identity.sign_data(unsinged_message)
-        self.transport.write(f"{signed_message}0000{unsinged_message}"
+        sig_b64 = base64.b64encode(signed_message).decode('utf-8')
+        data_json = json.dumps(unsinged_message)
+        self.transport.write(f"{sig_b64}0000{data_json}"
                              .encode('utf-8'), peer.address)
         return
 
@@ -463,7 +472,7 @@ begining of other functions
 """
 
 
-def broadcast_transction(transaction: Transaction) -> None:
+def broadcast_transaction(transaction: Transaction) -> None:
     usnsigned_transaction_data = asdict(transaction)
     return server.broadcast_message(usnsigned_transaction_data, 'transaction', 0)
 
@@ -523,7 +532,7 @@ def network_monitor():
                 """
                 # do not close the block
                 reason = 'time or transaction_queue size'
-                print(f"Tansaction queue : {transaction_queue} - > {reason}")
+                print(f"Transaction queue : {transaction_queue} - > {reason}")
                 # print(reason)
             else:
                 if len(transaction_queue) > 1:
@@ -548,7 +557,7 @@ def network_monitor():
                         network_leader = True
         else:
             reason = 'wait for your chance'
-            print(f"Tansaction queue : {transaction_queue} - > {reason}")
+            print(f"Transaction queue : {transaction_queue} - > {reason}")
             # print(reason)
 
         time.sleep(0.5)

@@ -1,7 +1,7 @@
 # store small amounts of data verifying data in the offchain
 import sys
 
-from blockchain.trasanction import Transaction
+from blockchain.transaction import Transaction
 from blockchain.blockchain import Chain
 from blockchain.block import Block
 from blockchain.security import create_hash_default

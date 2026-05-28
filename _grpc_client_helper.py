@@ -2,6 +2,7 @@
 # contain all the methods and classes for running the grpc client
 
 from __future__ import print_function
+import json
 import sys
 import time
 import grpc
@@ -12,7 +13,7 @@ import block_pb2
 import block_pb2_grpc
 from blockchain.block import Block, HashBlock
 from blockchain.storage.onchain import save_transaction
-from blockchain.trasanction import HashTransaction, Transaction
+from blockchain.transaction import HashTransaction, Transaction
 from blockchain.blockchain import HashChain, Chain
 from blockchain.peer import Peer
 
@@ -32,7 +33,7 @@ def download_peer_blocks(peer_address, chain, block_id, database=None):
         
         for block in stub.DownloadBlocks(
                 block_pb2.BlocksRequest(hash=str(block_id))):
-            block_header = eval(block.header)
+            block_header = json.loads(block.header)
             # ignore the first block
             if block_header["hash"] == "0" and len(chain.chain) == 1:
                 continue
@@ -40,7 +41,8 @@ def download_peer_blocks(peer_address, chain, block_id, database=None):
             expected_prev_block = block_header["prev_hash"]
             expected_data_hash = block_header["data_hash"]
             
-            block_transactions = eval(block.transactions)
+            block_transactions_dicts = json.loads(block.transactions)
+            block_transactions = [Transaction(**tx) for tx in block_transactions_dicts]
 
             for transaction in block_transactions:
                 save_transaction(database, transaction)
@@ -93,7 +95,7 @@ class ChainValidator:
         pass
     
     def download_chain(self, peer):
-        hash_chain = HashChain(chain=set())
+        hash_chain = HashChain()
 
         with grpc.insecure_channel(f"{peer.address[0]}:50051") as channel:
             stub = block_pb2_grpc.BlockDownloaderStub(channel)
@@ -101,7 +103,7 @@ class ChainValidator:
             for block in stub.GetHashBlocks(
                     block_pb2.HashBlocksRequest(hash=str(self.last_block_hash))):
                 hash_chain.add_block(HashBlock(hash=block.hash,
-                    previous_hash=block.prev_hash,data_hash=block.data_hash))
+                    prev_hash=block.prev_hash, data_hash=block.data_hash))
         return hash_chain
     
     def valida_chains(lg_chain, other_chains):

@@ -1,3 +1,4 @@
+import json
 from twisted.internet.protocol import DatagramProtocol
 from twisted.internet import reactor
 from rsa import PublicKey
@@ -38,7 +39,7 @@ class Server(DatagramProtocol):
     def datagramReceived(self, datagram, addr):
         datagram = datagram.decode('utf-8')
 
-        dict_data = eval(datagram)
+        dict_data = json.loads(datagram)
 
         try:
             # data from node is dictionary
@@ -47,15 +48,15 @@ class Server(DatagramProtocol):
 
             if dict_data["status"] == "ready":
                 """
-                message recvd from a new node ready to enter the network
+                message received from a new node ready to enter the network
                 """
 
                 new_client = {"address": addr, "name": dict_data["name"],
-                              "public_key": PublicKey._save_pkcs1_pem(dict_data["pk"])}
+                              "public_key": dict_data["pk"]}
 
                 if check_node_acceptability(new_client):
                     # add new node if it is acceptable
-                    self.clients.add(str(new_client))
+                    self.clients.add(json.dumps(new_client))
 
                     print(f"Length of clients : {self.clients.__len__()}")
                     if self.clients.__len__() == 1:
@@ -64,32 +65,34 @@ class Server(DatagramProtocol):
             for peer in self.clients:
                 all_peers = list(self.clients)
 
-                print(f"Leade Node: {self.leader_node}")
+                print(f"Leader Node: {self.leader_node}")
 
                 print(f"All peers {all_peers} : {type(all_peers)}")
 
                 # find the name of the peer to be removed
                 # peer to be removed is the one to receive list of peers
-                peer_name_to_remove = [eval(x)["name"] for x in self.clients if
-                                       eval(x)["address"] == eval(peer)["address"]]
+                peer_name_to_remove = [json.loads(x)["name"] for x in self.clients if
+                                       json.loads(x)["address"] == json.loads(peer)["address"]]
 
                 # print(f"peer name to be removed {peer_name_to_remove}")
                 # set the value of the peer to be removed
-                peer_to_remove = {"address": eval(peer)["address"],
+                peer_obj = json.loads(peer)
+                peer_to_remove = {"address": peer_obj["address"],
                                   "name": peer_name_to_remove[0]}
 
                 print(f"peer to be removed: {peer_to_remove}")
 
-                # create a list of other peers leaving the peer ot receive the datagram
+                # create a list of other peers leaving the peer to receive the datagram
     
-                peer_addresses = "::::".join([peer for peer in all_peers if peer_to_remove['name'] != eval(peer)['name']])
+                peer_addresses = "::::".join([peer for peer in all_peers if peer_to_remove['name'] != json.loads(peer)['name']])
 
                 print(f"peers to be send {peer_addresses}")
 
-                # print(f"Peer to recieve datagram {eval(peer)['address']}")
+                # print(f"Peer to receive datagram {json.loads(peer)['address']}")
                 # send the remaining peers to the node
+                peer_recipient = json.loads(peer)
                 self.transport.write(f'peers->{peer_addresses}'.encode('utf-8'),
-                                     (eval(peer)["address"]))
+                                     tuple(peer_recipient["address"]))
 
         except KeyError as ex:
             # data from mobile client is list

@@ -33,8 +33,8 @@ class Block:
 @dataclass(kw_only=True)
 class HashBlock:
     hash: str
-    previous_hash: str
+    prev_hash: str
     data_hash: str
 
     def __hash__(self):
-        return hash(f"{self.hash},{self.previous_hash},{self.data_hash}")
+        return hash(f"{self.hash},{self.prev_hash},{self.data_hash}")

@@ -60,5 +60,5 @@ class Identity:
             else:
                 return "Public key is missing"
 
-    def derypt_data(self, data):
+    def decrypt_data(self, data):
         return rsa.decrypt(data, self.private_key).decode('utf-8')

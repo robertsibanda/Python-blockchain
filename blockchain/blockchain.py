@@ -64,7 +64,7 @@ class Chain:
         pass
 
     def is_valid(self) -> bool:
-        """check validity of the chian"""
+        """check validity of the chain"""
         for blck in self.chain:
             if self.chain.index(blck) == 0:
                 """ignore the first block"""
@@ -95,7 +95,11 @@ class Chain:
 
 @dataclass
 class HashChain:
-    chain: set()
+    chain: set | None = None
+
+    def __post_init__(self):
+        if self.chain is None:
+            self.chain = set()
 
     def add_block(self, block: HashBlock):
         self.chain.add(block)

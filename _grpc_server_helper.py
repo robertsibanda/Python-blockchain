@@ -1,6 +1,8 @@
 # node 2 node communication through googleRPC
 # contain all the methods and classes for running the grpc server
+import json
 from concurrent import futures
+from dataclasses import asdict
 
 import grpc
 from pymongo import MongoClient
@@ -8,7 +10,7 @@ from pymongo import MongoClient
 import block_pb2
 import block_pb2_grpc
 from blockchain.blockchain import Chain
-from blockchain.trasanction import Transaction
+from blockchain.transaction import Transaction
 from block_pb2 import Block
 
 
@@ -29,15 +31,15 @@ class BlockDownloader(block_pb2_grpc.BlockDownloaderServicer):
         blocks_2send = self.get_block_range(self.chain, request.hash)
 
         for block in blocks_2send:
-            yield Block(header=str(block.header),
-                        transactions=str(block.transactions))
+            tx_dicts = [asdict(tx) for tx in block.transactions]
+            yield Block(header=json.dumps(block.header),
+                        transactions=json.dumps(tx_dicts))
     
     def GetHashBlocks(self, request, context):
         
         blocks_2send = self.get_block_range(self.chain, request.hash)
     
         for block in blocks_2send:
-            print(block.header)
             yield block_pb2.HashBlock(hash=str(block.header['hash']),
                                       data_hash=str(block.header['data_hash']),
                                       prev_hash=str(block.header['prev_hash']))

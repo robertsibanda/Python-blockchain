@@ -1,5 +1,6 @@
 jsonrpcserver
 rsa
+grpcio
 grpcio-tools
 pymongo
 cryptography

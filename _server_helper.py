@@ -47,7 +47,7 @@ def process_close_block(transaction_queue, transactions):
         return { "found" : False}
 
 
-def new_node_regiser(new_node_props: dict, chain: Chain, peer: Peer,
+def new_node_register(new_node_props: dict, chain: Chain, peer: Peer,
                      chains_to_validate: dict):
     
     my_chain_props = {
