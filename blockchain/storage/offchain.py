@@ -1,2 +1,2 @@
-# store large volumes of data in order for it to be efficinetly accessed and searched
+"""Off-chain storage for large volumes of data that are referenced by on-chain transactions."""
 from .database import Database

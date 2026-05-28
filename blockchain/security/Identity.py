@@ -2,43 +2,42 @@ import rsa
 
 
 class Identity:
+    """Manages RSA key pair for signing, verification, encryption, and decryption."""
+
     def __init__(self):
         self.private_key = None
         self.public_key = None
         self.load_public_key()
         self.load_private_key()
 
-    def sign_data(self, data):
-        signed_data = rsa.sign(str(data).encode(
-            'utf-8'), self.private_key, 'SHA-256')
-        return signed_data
+    def sign_data(self, data) -> bytes:
+        """Sign data with the private key using SHA-256.
+
+        Args:
+            data: The data to sign.
+
+        Returns:
+            The RSA signature bytes.
+        """
+        return rsa.sign(str(data).encode('utf-8'), self.private_key, 'SHA-256')
 
     def create_new_keys(self) -> None:
-        """
-        create new keys for new node
-        """
-        print("Generating new keys .. \
-            first time launch\nPlease wait a moment ....")
-        new_public_key, new_private_key = rsa.newkeys(2000)
-
-        private_key_file = open("private.pem", 'wb')
-        public_key_file = open("public.pem", "wb")
+        """Generate a new RSA key pair (2048-bit) and save to PEM files."""
+        print("Generating new keys .. first time launch\nPlease wait a moment ....")
+        new_public_key, new_private_key = rsa.newkeys(2048)
 
         self.private_key = new_private_key.save_pkcs1("PEM")
         self.public_key = new_public_key.save_pkcs1("PEM")
-        private_key_file.write(self.private_key)
-        public_key_file.write(self.public_key)
 
-        private_key_file.close()
-        public_key_file.close()
+        with open("private.pem", 'wb') as private_key_file:
+            private_key_file.write(self.private_key)
+        with open("public.pem", "wb") as public_key_file:
+            public_key_file.write(self.public_key)
 
         print("Generating keys done, do not share keys with anyone")
-        return
 
     def load_private_key(self) -> None:
-        """
-        load private key from saved file
-        """
+        """Load the private key from private.pem; generate keys if file not found."""
         try:
             with open("private.pem", 'rb+') as key_file:
                 private_key_data = key_file.read()
@@ -46,10 +45,8 @@ class Identity:
         except FileNotFoundError:
             self.create_new_keys()
 
-    def load_public_key(self):
-        """
-        load public key from saved file
-        """
+    def load_public_key(self) -> str | None:
+        """Load the public key from public.pem; generate keys if not found."""
         try:
             with open("public.pem", 'rb+') as key_file:
                 public_key_data = key_file.read()
@@ -59,6 +56,15 @@ class Identity:
                 self.create_new_keys()
             else:
                 return "Public key is missing"
+        return None
 
-    def decrypt_data(self, data):
+    def decrypt_data(self, data: bytes) -> str:
+        """Decrypt data using the private key.
+
+        Args:
+            data: The encrypted data bytes.
+
+        Returns:
+            The decrypted UTF-8 string.
+        """
         return rsa.decrypt(data, self.private_key).decode('utf-8')

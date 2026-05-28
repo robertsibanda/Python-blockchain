@@ -1,39 +1,34 @@
-# contains all other methods for blockchain
+"""Blockchain core package providing block, chain, and peer data structures."""
 from . import block
 from . import blockchain
 from . import peer
-import hashlib
 
 
 def load_from_database() -> blockchain.Chain:
-    """Load blockchain from exiting mongo database"""
-    chain = blockchain.Chain()
-    return chain
+    """Create a new empty chain instance (placeholder for database loading)."""
+    return blockchain.Chain()
 
 
-def create_new_block(transaction_data):
-    """
-    add new block with first transaction
-    :param transaction_data: first transaction
-    :return: new block id
-    """
+def create_new_block(transaction_data) -> None:
+    """Placeholder: add a new block with the first transaction."""
     pass
 
 
-def add_transaction(block, transaction):
+def add_transaction(block, transaction) -> None:
+    """Placeholder: add a transaction to a block."""
     pass
 
 
-def close_block(block):
+def close_block(block) -> None:
+    """Placeholder: finalize a block."""
     pass
 
 
 def validate_transaction() -> bool:
+    """Placeholder: validate a transaction."""
     pass
 
 
-def lookup_transactions(chain: blockchain.Chain) -> []:
-    """
-    takes a little while to lookup all transactions
-    """
+def lookup_transactions(chain: blockchain.Chain) -> list:
+    """Placeholder: lookup all transactions in the chain."""
     pass

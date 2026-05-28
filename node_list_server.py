@@ -1,121 +1,91 @@
+"""Node list server — central registry for peer discovery on the blockchain network."""
 import json
-from twisted.internet.protocol import DatagramProtocol
+from typing import Any, Set
+
 from twisted.internet import reactor
-from rsa import PublicKey
-import threading
+from twisted.internet.protocol import DatagramProtocol
 
-acceptable_nodes = set()
-
+acceptable_nodes: Set[Any] = set()
 leader_node = None
 
 
-def check_node_acceptability(node):
-    # check if node does not already exist on the network with different address
-    # check if the node is authentic
-    # TODO remove duplicates, make sure peer is already registered
+def check_node_acceptability(node: Any) -> bool:
+    """Check if a node is acceptable for the network (placeholder).
+
+    Returns:
+        Always True.
+    """
     return True
 
 
-def check_alive_status(node):
-    # check that the nodes are still alive
-    # and update the node-list if there are any changes
+def check_alive_status(node: Any) -> bool:
+    """Check if a node is still alive (placeholder).
+
+    Returns:
+        Always True.
+    """
     return True
 
 
 class Node:
+    """A registered node on the network."""
 
-    def __init__(self, addr, pk, name):
+    def __init__(self, addr: str, pk: str, name: str):
         self.name = name
         self.addr = addr
         self.pk = pk
 
 
 class Server(DatagramProtocol):
+    """Twisted UDP server managing peer registration and discovery."""
 
     def __init__(self):
-        self.clients = set()
+        self.clients: Set[str] = set()
         self.leader_node = None
 
-    def datagramReceived(self, datagram, addr):
+    def datagramReceived(self, datagram: bytes, addr: tuple) -> None:
+        """Handle incoming datagrams for peer registration and queries."""
         datagram = datagram.decode('utf-8')
-
         dict_data = json.loads(datagram)
 
         try:
-            # data from node is dictionary
-            old_peers = self.clients
-            new_client = None
-
             if dict_data["status"] == "ready":
-                """
-                message received from a new node ready to enter the network
-                """
-
-                new_client = {"address": addr, "name": dict_data["name"],
-                              "public_key": dict_data["pk"]}
-
+                new_client = {
+                    "address": addr,
+                    "name": dict_data["name"],
+                    "public_key": dict_data["pk"]
+                }
                 if check_node_acceptability(new_client):
-                    # add new node if it is acceptable
                     self.clients.add(json.dumps(new_client))
-
-                    print(f"Length of clients : {self.clients.__len__()}")
-                    if self.clients.__len__() == 1:
+                    if len(self.clients) == 1:
                         self.leader_node = new_client
 
             for peer in self.clients:
                 all_peers = list(self.clients)
-
-                print(f"Leader Node: {self.leader_node}")
-
-                print(f"All peers {all_peers} : {type(all_peers)}")
-
-                # find the name of the peer to be removed
-                # peer to be removed is the one to receive list of peers
-                peer_name_to_remove = [json.loads(x)["name"] for x in self.clients if
-                                       json.loads(x)["address"] == json.loads(peer)["address"]]
-
-                # print(f"peer name to be removed {peer_name_to_remove}")
-                # set the value of the peer to be removed
+                peer_name_to_remove = [
+                    json.loads(x)["name"] for x in self.clients
+                    if json.loads(x)["address"] == json.loads(peer)["address"]
+                ]
                 peer_obj = json.loads(peer)
                 peer_to_remove = {"address": peer_obj["address"],
                                   "name": peer_name_to_remove[0]}
 
-                print(f"peer to be removed: {peer_to_remove}")
-
-                # create a list of other peers leaving the peer to receive the datagram
-    
-                peer_addresses = "::::".join([peer for peer in all_peers if peer_to_remove['name'] != json.loads(peer)['name']])
-
-                print(f"peers to be send {peer_addresses}")
-
-                # print(f"Peer to receive datagram {json.loads(peer)['address']}")
-                # send the remaining peers to the node
+                peer_addresses = "::::".join([
+                    p for p in all_peers
+                    if peer_to_remove['name'] != json.loads(p)['name']
+                ])
                 peer_recipient = json.loads(peer)
-                self.transport.write(f'peers->{peer_addresses}'.encode('utf-8'),
-                                     tuple(peer_recipient["address"]))
+                self.transport.write(
+                    f'peers->{peer_addresses}'.encode('utf-8'),
+                    tuple(peer_recipient["address"]))
 
         except KeyError as ex:
-            # data from mobile client is list
-
-            if dict_data["request"] == "node-request":
-                # a mobile client requesting a node
-                pass
-
-            if dict_data["request"] == "node-report":
-                # report a node not responding
-                pass
-
-            if dict_data["request"] == "node-leader":
-                # a new node requesting leader_node (current_block closer)
+            if dict_data.get("request") == "node-leader":
                 self.transport.write(
                     f"node-leader->{self.leader_node['name']}")
-
             print(f"KeyError : {ex}")
 
 
 if __name__ == '__main__':
-    # the node-list-server must always run on port 9009
     reactor.listenUDP(9009, Server())
-    # status_server_thread = threading.Thread(target=check_alive_status)
-    # status_server_thread.start()
     reactor.run()

@@ -1,6 +1,6 @@
 class BlockInvalidError(Exception):
-    
-    def __init__(self):
-        super().__init__("")
-        
+    """Raised when a block fails integrity or validation checks."""
+
+    def __init__(self, message: str = "Block is invalid"):
+        super().__init__(message)
     

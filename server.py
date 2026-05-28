@@ -26,31 +26,14 @@ from blockchain.storage.onchain import load_all_blocks, save_transaction
 from blockchain.transaction import Transaction
 
 """
-*db_name* 
-: the name of the database to connected
-default is localhost : '127.0.0.1, 27017'
-
-chain: the blockchain containing blocks and transactions
-
-*load_all_blocks*
-: loads all previously saved blocks
-from the database onto the chain
-
-
-*identity* 
-: contains all the Node`s signing,
-encrypting, decrypting and verifying functions
-
-*transaction_queue*
-: contains all the transactions received but
-not yet written to the chain
-
-*network_leader*
-: closes the block
-
-*next_network_leader*
-: takes over after leader
-or if leader goes down for a significant amt of time
+Variables:
+    db_name: The name of the MongoDB database to connect to (default: localhost).
+    chain: The blockchain containing blocks and transactions.
+    load_all_blocks: Loads all previously saved blocks from the database onto the chain.
+    identity: Contains all the node's signing, encrypting, decrypting, and verifying functions.
+    transaction_queue: Contains all transactions received but not yet written to the chain.
+    network_leader: The node responsible for closing the current block.
+    next_network_leader: Takes over after the leader or if the leader goes down.
 """
 
 db_name = ''
@@ -90,16 +73,17 @@ last_block_time = None
 
 
 class Server(DatagramProtocol):
+    """Main blockchain node server handling peer-to-peer communication via UDP."""
+
     def __init__(self, host, port):
         self.peers = set()
         self.id = '{}:{}'.format(host, port)
         self.address = (host, port)
-        # self.server = socket.gethostbyname('node-reg'), 9009
         self.server = None
 
         try:
             self.server = socket.gethostbyname('node-reg'), 9009
-        except:
+        except Exception:
             self.server = '172.20.0.1', 9009
 
         self.index_being_validated = 0
@@ -112,92 +96,27 @@ class Server(DatagramProtocol):
         print('working on id : ', self.id)
 
     def startProtocol(self):
-        """initialize the connection"""
+        """Send registration message to the node list server on startup."""
         pk_pem = identity.public_key.save_pkcs1("PEM").decode('utf-8')
         node_identity = {"status": "ready",
                          "pk": pk_pem, "name": self.my_name}
-
-        # send message to node_list_server to get peers
         self.transport.write(json.dumps(node_identity).encode('utf-8'), self.server)
 
     def datagramReceived(self, datagram: bytes, addr):
-
+        """Handle incoming UDP datagrams from the node list server and peer nodes."""
         global network_leader, next_network_leader, transaction_queue, last_block_time
 
         if addr[1] == self.server[1]:
-            '''
-            handle comms comming from node with register of
-            online nodes
-            '''
-            data = datagram.decode().split('->')
-
-            if data[1] == '':
-
-                print("No peers in the network")
-
-                network_leader = True
-                last_block_time = datetime.datetime.today()
-                print(f"I am network leader : {network_leader}")
-
-                self.new_join = False
-                return
-
-            if data[0] == 'peers':
-                print(f"Data received from node-list-server {data}")
-                """
-                if node was already running update list of peers
-                """
-
-                recvd_peers = data[1].split('::::')
-                for p in recvd_peers:
-                    print(f"Peer {p}")
-
-                new_node = None
-
-                for peer in recvd_peers:
-                    if not peer.strip():
-                        continue
-                    peer_recvd = json.loads(peer)
-
-                    new_node = Peer(peer_recvd["address"],
-                                    peer_recvd["public_key"], peer_recvd["name"])
-
-                    if peer_exists(self.peers, new_node):
-                        continue
-
-                    self.peers.add(new_node)
-
-                if self.new_join:
-                    self.chains_to_validate[new_node.name] = 0
-                    """
-                    only register and request chain if new node
-                    """
-                    message = {"chain-length": f"{len(chain.chain)}",
-                               "last-block": chain.get_last_block().header["hash"]}
-
-                    self.broadcast_message(message, 'register', 0)
-                    self.new_join = False
-
-            print('\nPeers :{}'.format(
-                [f'\t{peer.name}' for peer in self.peers]))
+            self._handle_node_list_server(datagram, addr)
             return
-
-        """
-        handle comms comming from other peer nodes
-        """
-        recvd_data = ''
 
         try:
             recvd_data = datagram.decode().split('0000')
         except Exception as excpt:
             print('Failed to decode data : ', excpt.__str__())
+            return
 
         try:
-            """
-            verify data before going forward
-            """
-
-            # check with key belonging to addr
             signing_peer = None
             verified_data = False
 
@@ -205,17 +124,9 @@ class Server(DatagramProtocol):
                 if peer.address == addr:
                     signing_peer = peer
 
-            # signing_peer = [peer for peer in self.peers if peer.address == addr]
-
             if signing_peer is None:
-                # the signing peer is not found using address
-                # problem caused by NAT
-                # find by bruteforcing the public keys and update the address
-
                 print('Peer not found : brute force started ..........')
-
                 for peer in self.peers:
-                    print(f"Looking at {peer.address} : {peer.name} ")
                     try:
                         verified_data = verify_data(
                             recvd_data[1].encode('utf-8'),
@@ -223,228 +134,195 @@ class Server(DatagramProtocol):
                             rsa.PublicKey.load_pkcs1(peer.pk))
                     except rsa.VerificationError:
                         continue
-
                     if verified_data:
-                        # update the peer address
-                        print(
-                            f"Peer found updating from {peer.address} to {addr}")
+                        print(f"Peer found updating from {peer.address} to {addr}")
                         peer.address = addr
                         break
-
                 if signing_peer is None:
-                    # peer not found through brutefore
-                    # inform node_list_server
                     return
-
             else:
-                print('Signing peer : ', signing_peer.address)
-                # print('received data : ', recvd_data)
-
                 verified_data = verify_data(
                     recvd_data[1].encode('utf-8'),
                     base64.b64decode(recvd_data[0]),
                     rsa.PublicKey.load_pkcs1(signing_peer.pk))
 
             if verified_data:
-                print(f"Data received from peer {recvd_data[1]}")
-                # print(f"All received data : {recvd_data}")
-
-                # recvd_data is list [str, dict]
-                data_request = json.loads(recvd_data[1])
-                # print(f"type of recvd data  : {type(data_request)}")
-
-                if data_request[0] == 'register':
-
-                    # dict with properties of the request
-                    # {chain-length : x, last-block : y}
-
-                    new_node_chain_props = data_request[1]
-
-                    print(f"New node chain props : {new_node_chain_props}")
-
-                    response = new_node_register(
-                        new_node_chain_props, chain, self.transport, signing_peer)
-
-                    self.send_message(signing_peer, response,
-                                      "register-response", 1)
-
-                if data_request[0] == "new block":
-
-                    print(f"data request : {data_request[1]}")
-
-                    if signing_peer.name == network_leader:
-
-                        block_header = data_request[1][1]['header']
-                        transactions = data_request[1][1]["transactions"]
-
-                        pos_network_leader = data_request[1][1]['network_leader']
-
-                        print(f"Block header 1: {block_header}")
-
-                        data_hash = block_header["data_hash"]
-                        block_hash = block_header["hash"]
-                        block_prev_hash = block_header["prev_hash"]
-
-                        # respose { data_hash : '', block_hash : '' }
-                        response = process_close_block(
-                            transaction_queue, list(transactions))
-
-                        if response["found"]:
-                            new_block = Block()
-                            for transaction in response["transactions"]:
-                                new_block.add_new_transaction(transaction)
-                            new_block.close_block()
-
-                            # add new block to chain
-                            chain.add_new_block(new_block)
-                            print(f"Block header 2: {new_block.header}")
-                            print(f"Block 1 header : {block_header}")
-
-                            if (new_block.header["data_hash"] == data_hash and
-                                    new_block.header["hash"] == block_hash):
-
-                                last_block_time = datetime.datetime.today()
-
-                                database.save_block(new_block)
-                                print(
-                                    f"Bloc saved to database {new_block.header}")
-
-                                if pos_network_leader == self.my_name:
-                                    print(
-                                        f"Network leader updated to me : {network_leader}")
-                                    network_leader = True
-                                    next_network_leader = list(self.peers)[
-                                        randint(0, len(self.peers)-1)]
-                                    next_network_leader = next_network_leader.name
-                                else:
-                                    print(
-                                        f"I`m not network leader : {network_leader}")
-                            else:
-                                print("Block did not match")
-                        else:
-                            # some transactions not found
-                            # request missing transactions
-                            # and request latest savd block and save
-                            pass
-                    return
-
-                if data_request[1] == "correct block":
-                    # save the block
-                    return
-
-                if data_request[0] == 'leader-request':
-                    print(
-                        f"Peer : {signing_peer.name} requesting for block_leader")
-
-                    if not next_network_leader and len(self.peers) == 1:
-                        next_network_leader = signing_peer.name
-                        print(f"Changed next leader to : {signing_peer.name}")
-
-                    self.send_message(signing_peer, str({"leader": network_leader,
-                                                         'next_leader': next_network_leader}), "leader-response", 1)
-
-                    return
-
-                if data_request[0] == 'transaction':
-
-                    transaction_data = data_request[1][1]
-
-                    transaction = Transaction('', '', '', '')
-                    transaction._from_dict(transaction_data)
-
-                    # works because its a
-                    save_transaction(database, transaction)
-                    transaction_queue.append(transaction)
-
-                if data_request[0] == 'leader-response':
-                    # leader-response, {leader: True}
-
-                    encrypted_payload = base64.b64decode(data_request[1][1])
-                    decrypted_str = identity.decrypt_data(encrypted_payload)
-                    chain_leader_data = json.loads(decrypted_str)
-
-                    if chain_leader_data["leader"] is True:
-
-                        network_leader = signing_peer.name
-
-                        next_network_leader = chain_leader_data['next_leader']
-
-                        print(f"Leader node : {network_leader}")
-
-                    else:
-                        print(f"{signing_peer.name} isn not a leader")
-                    return
-
-                if data_request[0] == 'register-response':
-                    # decrypt the received data
-                    # decrypted data {response : x}
-                    encrypted_payload = base64.b64decode(data_request[1][1])
-                    decrypted_str = identity.decrypt_data(encrypted_payload)
-                    decrypted_response = json.loads(decrypted_str)
-
-                    if decrypted_response["response"] == "chains-equal":
-                        self.chains_to_validate[signing_peer.name] = 0
-                        self.check_ready_to_download()
-                        return
-
-                    elif decrypted_response["response"] == "-chain":
-                        # my chain is smaller
-                        self.chains_to_validate[signing_peer.name] = -1
-                        self.check_ready_to_download()
-                        return
-
-                    elif decrypted_response["response"] == "+chain":
-                        self.chains_to_validate[signing_peer.name] = 1
-                        self.check_ready_to_download()
-                        return
-
-                    elif decrypted_response["response"] == "^hash":
-                        # chain hashes are different but chains are equal
-
-                        self.chains_to_validate[signing_peer.name] = 2
-                        self.check_ready_to_download()
-                        return
+                self._handle_peer_message(recvd_data, signing_peer)
             else:
                 print('Invalid data')
 
         except ValueError as excpt:
-            data_invalid = True
             print(f"Value Error : {excpt}")
-        # reactor.callInThread(self.doStop())
 
-    def request_block_leader(self):
+    def _handle_node_list_server(self, datagram: bytes, addr: tuple) -> None:
+        """Process messages received from the central node list server."""
+        global network_leader, last_block_time
+
+        data = datagram.decode().split('->')
+
+        if data[1] == '':
+            print("No peers in the network")
+            network_leader = True
+            last_block_time = datetime.datetime.today()
+            print(f"I am network leader : {network_leader}")
+            self.new_join = False
+            return
+
+        if data[0] == 'peers':
+            recvd_peers = data[1].split('::::')
+            for p in recvd_peers:
+                print(f"Peer {p}")
+
+            new_node = None
+            for peer in recvd_peers:
+                if not peer.strip():
+                    continue
+                peer_recvd = json.loads(peer)
+                new_node = Peer(peer_recvd["address"],
+                                peer_recvd["public_key"], peer_recvd["name"])
+                if peer_exists(self.peers, new_node):
+                    continue
+                self.peers.add(new_node)
+
+            if self.new_join:
+                self.chains_to_validate[new_node.name] = 0
+                message = {"chain-length": f"{len(chain.chain)}",
+                           "last-block": chain.get_last_block().header["hash"]}
+                self.broadcast_message(message, 'register', 0)
+                self.new_join = False
+
+            print('\nPeers :{}'.format(
+                [f'\t{peer.name}' for peer in self.peers]))
+
+    def _handle_peer_message(self, recvd_data: list, signing_peer: Peer) -> None:
+        """Process verified messages received from peer nodes."""
+        global network_leader, next_network_leader, transaction_queue, last_block_time
+
+        data_request = json.loads(recvd_data[1])
+
+        if data_request[0] == 'register':
+            new_node_chain_props = data_request[1]
+            response = new_node_register(
+                new_node_chain_props, chain, self.transport, signing_peer)
+            self.send_message(signing_peer, response, "register-response", 1)
+
+        elif data_request[0] == "new block":
+            if signing_peer.name == network_leader:
+                block_header = data_request[1][1]['header']
+                transactions = data_request[1][1]["transactions"]
+                pos_network_leader = data_request[1][1]['network_leader']
+                data_hash = block_header["data_hash"]
+                block_hash = block_header["hash"]
+
+                response = process_close_block(
+                    transaction_queue, list(transactions))
+
+                if response["found"]:
+                    new_block = Block()
+                    for transaction in response["transactions"]:
+                        new_block.add_new_transaction(transaction)
+                    new_block.close_block()
+                    chain.add_new_block(new_block)
+
+                    if (new_block.header["data_hash"] == data_hash and
+                            new_block.header["hash"] == block_hash):
+                        last_block_time = datetime.datetime.today()
+                        database.save_block(new_block)
+                        print(f"Block saved to database {new_block.header}")
+
+                        if pos_network_leader == self.my_name:
+                            network_leader = True
+                            next_network_leader = list(self.peers)[
+                                randint(0, len(self.peers) - 1)]
+                            next_network_leader = next_network_leader.name
+                    else:
+                        print("Block did not match")
+
+        elif data_request[0] == 'leader-request':
+            print(f"Peer : {signing_peer.name} requesting for block_leader")
+            if not next_network_leader and len(self.peers) == 1:
+                next_network_leader = signing_peer.name
+            self.send_message(signing_peer, str({"leader": network_leader,
+                                                  'next_leader': next_network_leader}),
+                              "leader-response", 1)
+
+        elif data_request[0] == 'transaction':
+            transaction_data = data_request[1][1]
+            transaction = Transaction('', '', '', '')
+            transaction._from_dict(transaction_data)
+            save_transaction(database, transaction)
+            transaction_queue.append(transaction)
+
+        elif data_request[0] == 'leader-response':
+            encrypted_payload = base64.b64decode(data_request[1][1])
+            decrypted_str = identity.decrypt_data(encrypted_payload)
+            chain_leader_data = json.loads(decrypted_str)
+            if chain_leader_data["leader"] is True:
+                network_leader = signing_peer.name
+                next_network_leader = chain_leader_data['next_leader']
+                print(f"Leader node : {network_leader}")
+            else:
+                print(f"{signing_peer.name} is not a leader")
+
+        elif data_request[0] == 'register-response':
+            encrypted_payload = base64.b64decode(data_request[1][1])
+            decrypted_str = identity.decrypt_data(encrypted_payload)
+            decrypted_response = json.loads(decrypted_str)
+            response_map = {
+                "chains-equal": 0,
+                "-chain": -1,
+                "+chain": 1,
+                "^hash": 2,
+            }
+            status = response_map.get(decrypted_response["response"])
+            if status is not None:
+                self.chains_to_validate[signing_peer.name] = status
+                self.check_ready_to_download()
+
+    def request_block_leader(self) -> None:
+        """Placeholder: request to become the block leader."""
         pass
 
-    def check_ready_to_download(self):
-        if self.peers.__len__() / self.chains_to_validate.__len__() >= 0.5:
+    def check_ready_to_download(self) -> None:
+        """Check if enough peers have responded and initiate chain download if needed."""
+        if len(self.peers) / max(len(self.chains_to_validate), 1) >= 0.5:
             if -1 not in self.chains_to_validate.values():
                 print("No peer greater than mine")
                 self.broadcast_message("chain-leader", "leader-request", 1)
                 self.chains_to_validate = {}
                 return
-
             chain_validator = ChainValidator(self.peers, chain, database)
             chain_validator.get_all_chains_tp()
             self.chains_to_validate = {}
             self.broadcast_message("chain-leader", "leader-request", 1)
             return
-
         print("Peers less than 0.5")
 
-        return
-
-    def send_response(self, message, peer_address):
-        # encrypt and send response
+    def send_response(self, message: bytes, peer_address: tuple) -> None:
+        """Send a raw response to a peer address."""
         self.transport.write(message, peer_address)
-        return
 
-    def broadcast_message(self, message, message_label, e):
-        # send a signed and encrypted message to all peers
+    def broadcast_message(self, message, message_label: str, e: int) -> bool:
+        """Send a signed message to all connected peers.
+
+        Args:
+            message: The message content.
+            message_label: The message type label.
+            e: Encryption flag (1 = encrypt payload).
+        """
         for peer in self.peers:
             self.send_message(peer, message, message_label, e)
         return True
 
-    def send_message(self, peer:  Peer, message, message_label, e):
+    def send_message(self, peer: Peer, message, message_label: str, e: int) -> None:
+        """Send a signed (and optionally encrypted) message to a specific peer.
+
+        Args:
+            peer: The target peer.
+            message: The message payload.
+            message_label: The message type label.
+            e: Encryption flag (1 = encrypt with peer's public key).
+        """
         import base64
 
         message_to_send = [message_label, message]
@@ -454,13 +332,12 @@ class Server(DatagramProtocol):
                 rsa.PublicKey.load_pkcs1(peer.pk), message)
             message_to_send = [message_label, base64.b64encode(encrypted).decode('utf-8')]
 
-        unsinged_message = [message_label, message_to_send]
-        signed_message = identity.sign_data(unsinged_message)
+        unsigned_message = [message_label, message_to_send]
+        signed_message = identity.sign_data(unsigned_message)
         sig_b64 = base64.b64encode(signed_message).decode('utf-8')
-        data_json = json.dumps(unsinged_message)
-        self.transport.write(f"{sig_b64}0000{data_json}"
-                             .encode('utf-8'), peer.address)
-        return
+        data_json = json.dumps(unsigned_message)
+        self.transport.write(
+            f"{sig_b64}0000{data_json}".encode('utf-8'), peer.address)
 
 
 port = 5000
@@ -468,7 +345,7 @@ server = Server('0.0.0.0', port)
 
 
 """
-begining of other functions
+beginning of other functions
 """
 
 
@@ -487,9 +364,7 @@ def create_block(transactions) -> Block:
 
 
 def broadcast_new_block(new_block: Block):
-    """
-    notify other nodes about the new block
-    """
+    """Notify other nodes about the new block."""
 
     global next_network_leader
 
@@ -503,10 +378,7 @@ def broadcast_new_block(new_block: Block):
 
 
 def network_monitor():
-    """
-    monitor the network inorder
-    to create new blocks timely
-    """
+    """Monitor the network and create new blocks when conditions are met."""
 
     while True:
 
@@ -564,7 +436,7 @@ def network_monitor():
 
 
 """
-begining of jsonrpc intermediary methods
+beginning of jsonrpc intermediary methods
 """
 
 @method
